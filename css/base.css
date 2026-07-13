@@ -1,0 +1,136 @@
+/* Budget Bear — Base styles: reset, typography, layout primitives */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-16);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
+}
+
+h1, h2, h3, h4, p { margin: 0; }
+
+h1 { font-size: var(--fs-26); font-weight: var(--fw-bold); letter-spacing: -0.02em; }
+h2 { font-size: var(--fs-20); font-weight: var(--fw-semibold); letter-spacing: -0.01em; }
+h3 { font-size: var(--fs-16); font-weight: var(--fw-semibold); }
+
+img, svg { display: block; max-width: 100%; }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a { color: var(--primary); text-decoration: none; }
+
+:focus-visible {
+  outline: 2px solid var(--green-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection { background: var(--green-100); }
+
+/* ------- App layout ------- */
+
+#app {
+  max-width: var(--app-max);
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+  background: var(--bg);
+}
+
+@media (min-width: 480px) {
+  body { background: #f2f6f2; }
+  #app {
+    box-shadow: 0 0 0 1px var(--border), var(--shadow-3);
+    border-radius: 0;
+  }
+}
+
+.screen {
+  padding: var(--sp-5) var(--sp-4) calc(var(--nav-h) + var(--safe-b) + var(--sp-8));
+  min-height: 100dvh;
+  animation: screen-in var(--dur-base) var(--ease-out);
+}
+
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.screen-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--sp-5);
+}
+
+.screen-header .sub {
+  font-size: var(--fs-13);
+  color: var(--text-2);
+}
+
+/* Utility text */
+.t-secondary { color: var(--text-2); }
+.t-small { font-size: var(--fs-13); }
+.t-num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.t-pos { color: var(--green-600); }
+.t-neg { color: var(--error); }
+
+.stack > * + * { margin-top: var(--sp-3); }
+.stack-lg > * + * { margin-top: var(--sp-5); }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.row .grow { flex: 1; min-width: 0; }
+
+.section-title {
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: var(--sp-6) 0 var(--sp-3);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

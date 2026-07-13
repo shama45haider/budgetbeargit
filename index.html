@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Budget Bear — Your personal financial companion</title>
+  <meta name="description" content="Budget Bear makes budgeting effortless. Plan goals, track spending, and get clear financial guidance from your AI coach — all in one calm, focused app.">
+  <meta name="theme-color" content="#f9fbf9">
+
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+
+  <meta property="og:title" content="Budget Bear">
+  <meta property="og:description" content="Budgeting that feels effortless. Goals, daily plans, and an AI financial coach in one calm app.">
+  <meta property="og:image" content="assets/social-banner.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://budgetbear.xyz">
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+  <div id="app">
+    <main id="view" tabindex="-1">
+      <!-- Initial skeleton while the app boots -->
+      <div class="screen" aria-hidden="true">
+        <div class="skeleton" style="height:28px;width:55%;margin-bottom:20px"></div>
+        <div class="skeleton" style="height:130px;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:90px;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:90px"></div>
+      </div>
+    </main>
+    <nav class="bottom-nav" id="nav" aria-label="Main" hidden></nav>
+  </div>
+
+  <div id="overlay-root"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
