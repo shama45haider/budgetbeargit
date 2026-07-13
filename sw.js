@@ -1,6 +1,6 @@
 /* Budget Bear — service worker: offline-first app shell. */
 
-const CACHE = "budgetbear-v1";
+const CACHE = "budgetbear-v2";
 
 const SHELL = [
   "./",
