@@ -241,6 +241,10 @@ button.list-row:active { background: var(--off-white); }
 
 /* ------- Bottom navigation ------- */
 
+.bottom-nav[hidden] {
+  display: none;
+}
+
 .bottom-nav {
   position: fixed;
   bottom: 0;

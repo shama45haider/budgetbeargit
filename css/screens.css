@@ -55,6 +55,9 @@
   padding-bottom: var(--sp-5);
   flex-shrink: 0;
 }
+.wizard-back[hidden] {
+  display: none;
+}
 .wizard-back {
   width: 36px; height: 36px;
   display: grid;
