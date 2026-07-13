@@ -1,6 +1,6 @@
 /* Budget Bear — service worker: offline-first app shell. */
 
-const CACHE = "budgetbear-v2";
+const CACHE = "budgetbear-v3";
 
 const SHELL = [
   "./",
@@ -60,20 +60,21 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// Cache-first for same-origin GETs; network fallback updates the cache.
+// Network-first for same-origin GETs, so a fresh deploy is visible immediately
+// to anyone online; cache is only a fallback for offline use. (A pure
+// cache-first strategy here previously meant every deploy needed a manual
+// CACHE version bump before real users would ever see it — network-first
+// removes that whole failure mode.)
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
   e.respondWith(
-    caches.match(e.request).then((cached) =>
-      cached ||
-      fetch(e.request).then((res) => {
-        if (res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy));
-        }
-        return res;
-      }).catch(() => caches.match("index.html"))
-    )
+    fetch(e.request).then((res) => {
+      if (res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy));
+      }
+      return res;
+    }).catch(() => caches.match(e.request).then((cached) => cached || caches.match("index.html")))
   );
 });
