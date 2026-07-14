@@ -64,28 +64,28 @@ export async function loadMyProfile() {
 
 /* ---------- Auth actions ---------- */
 
-export async function signUp(email, password, displayName) {
+export async function signUp(email, password, displayName, captchaToken) {
   const c = getClient();
   const { data, error } = await c.auth.signUp({
     email, password,
-    options: { data: { display_name: displayName } },
+    options: { data: { display_name: displayName }, captchaToken },
   });
   if (error) throw error;
   return data;
 }
 
-export async function signIn(email, password) {
+export async function signIn(email, password, captchaToken) {
   const c = getClient();
-  const { data, error } = await c.auth.signInWithPassword({ email, password });
+  const { data, error } = await c.auth.signInWithPassword({ email, password, options: { captchaToken } });
   if (error) throw error;
   return data;
 }
 
-export async function sendMagicLink(email) {
+export async function sendMagicLink(email, captchaToken) {
   const c = getClient();
   const { error } = await c.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: location.origin + location.pathname },
+    options: { emailRedirectTo: location.origin + location.pathname, captchaToken },
   });
   if (error) throw error;
 }

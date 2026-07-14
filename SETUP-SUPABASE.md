@@ -54,6 +54,32 @@ Email + password and magic links work with zero extra setup. For the
    Client ID and Secret.
 4. In [`js/cloud/config.js`](js/cloud/config.js) set `GOOGLE_AUTH_ENABLED = true`.
 
+## 6. Bot/abuse protection (recommended before real users)
+
+Two layers, both optional but recommended:
+
+**Database-level caps** (already in `supabase/schema.sql` — nothing to do if you've
+run the latest version): a user can create at most 30 groups, and contributions are
+rate-limited to one per second per user. These stop a malicious script from flooding
+your database; they're invisible to real people.
+
+**CAPTCHA on signup/sign-in** (stops scripted mass account creation, which is the
+main way strangers burn through Supabase's free email-sending limit):
+
+1. [dash.cloudflare.com](https://dash.cloudflare.com) → **Turnstile** → **Add site**
+   (free). Widget mode: "Managed" is a good default.
+2. Copy the **Site Key** and **Secret Key**.
+3. Supabase Dashboard → **Authentication → Attack Protection** → enable **Captcha
+   protection**, choose **Turnstile**, paste the **Secret Key**.
+4. In [`js/cloud/config.js`](js/cloud/config.js):
+
+```js
+export const TURNSTILE_ENABLED = true;
+export const TURNSTILE_SITE_KEY = "0x4AAAAAAA...";  // the Site Key, not the secret
+```
+
+The secret key stays in Supabase's dashboard only — never put it in client code.
+
 ## Done
 
 Commit the config change and push — the deployed app picks it up on the next

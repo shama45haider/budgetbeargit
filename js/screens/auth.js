@@ -1,12 +1,45 @@
 /* Budget Bear — sign in / create account. */
 
 import { esc } from "../format.js";
-import { cloudConfigured, GOOGLE_AUTH_ENABLED } from "../cloud/config.js";
+import { cloudConfigured, GOOGLE_AUTH_ENABLED, TURNSTILE_ENABLED, TURNSTILE_SITE_KEY } from "../cloud/config.js";
 import { cloudReady, signIn, signUp, sendMagicLink, signInWithGoogle, currentUser } from "../cloud/client.js";
 import { toast } from "../ui/components.js";
 import { navigate } from "../router.js";
 
 let mode = "signin"; // signin | signup | magic
+let captchaToken = null;
+let captchaWidgetId = null;
+
+/** Cloudflare Turnstile only ever loads if TURNSTILE_ENABLED — zero external
+    requests otherwise, keeping the app self-contained by default. */
+function ensureTurnstileScript() {
+  if (window.turnstile) return Promise.resolve();
+  if (window.__turnstileLoading) return window.__turnstileLoading;
+  window.__turnstileLoading = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    s.async = true;
+    s.defer = true;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+  return window.__turnstileLoading;
+}
+
+function renderCaptcha(view) {
+  const el = view.querySelector("#au-captcha");
+  if (!el) return;
+  captchaToken = null;
+  ensureTurnstileScript().then(() => {
+    if (!view.isConnected) return;
+    captchaWidgetId = window.turnstile.render(el, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (token) => { captchaToken = token; },
+      "expired-callback": () => { captchaToken = null; },
+    });
+  }).catch(() => { /* offline or blocked — submit will just show the "verify" prompt */ });
+}
 
 export function authNext(path) {
   sessionStorage.setItem("bb.authNext", path);
@@ -53,6 +86,7 @@ export function renderAuth(view) {
         <div class="field"><label class="field-label" for="au-pass">Password</label>
           <input class="input" id="au-pass" type="password" placeholder="${mode === "signup" ? "8+ characters" : "Your password"}"
             autocomplete="${mode === "signup" ? "new-password" : "current-password"}" minlength="8" required></div>` : ""}
+      ${TURNSTILE_ENABLED ? `<div id="au-captcha" style="margin:2px auto"></div>` : ""}
       <button class="btn btn-primary btn-block" id="au-submit">
         ${mode === "signup" ? "Create account" : mode === "magic" ? "Email me a link" : "Sign in"}
       </button>
@@ -74,6 +108,8 @@ export function renderAuth(view) {
     </p>
   </div>`;
 
+  if (TURNSTILE_ENABLED) renderCaptcha(view);
+
   view.querySelectorAll("[data-mode]").forEach((b) =>
     b.addEventListener("click", () => { mode = b.dataset.mode; renderAuth(view); }));
 
@@ -85,11 +121,17 @@ export function renderAuth(view) {
     e.preventDefault();
     const btn = view.querySelector("#au-submit");
     const email = view.querySelector("#au-email").value.trim();
+
+    if (TURNSTILE_ENABLED && !captchaToken) {
+      toast("Please complete the verification above");
+      return;
+    }
+
     btn.disabled = true;
     btn.textContent = "One moment…";
     try {
       if (mode === "magic") {
-        await sendMagicLink(email);
+        await sendMagicLink(email, captchaToken);
         view.querySelector(".auth-hero p").textContent = "Link sent — check your email and tap it on this device.";
         toast("Sign-in link sent");
         btn.textContent = "Link sent ✓";
@@ -98,7 +140,7 @@ export function renderAuth(view) {
       const pass = view.querySelector("#au-pass").value;
       if (mode === "signup") {
         const name = view.querySelector("#au-name").value.trim();
-        const res = await signUp(email, pass, name);
+        const res = await signUp(email, pass, name, captchaToken);
         if (res.user && !res.session) {
           // email confirmation is enabled in the Supabase project
           view.querySelector(".auth-hero p").textContent = "Almost there — confirm via the email we just sent, then sign in.";
@@ -108,7 +150,7 @@ export function renderAuth(view) {
           return;
         }
       } else {
-        await signIn(email, pass);
+        await signIn(email, pass, captchaToken);
       }
       toast(mode === "signup" ? "Welcome to Budget Bear" : "Signed in");
       navigate(consumeAuthNext());
@@ -116,6 +158,10 @@ export function renderAuth(view) {
       toast(friendly(err));
       btn.disabled = false;
       btn.textContent = mode === "signup" ? "Create account" : mode === "magic" ? "Email me a link" : "Sign in";
+      // Turnstile tokens are single-use — refresh the widget so retry can succeed.
+      if (TURNSTILE_ENABLED && window.turnstile && captchaWidgetId != null) {
+        window.turnstile.reset(captchaWidgetId);
+      }
     }
   });
 }
@@ -125,6 +171,7 @@ function friendly(err) {
   if (m.includes("invalid login")) return "Email or password doesn't match.";
   if (m.includes("already registered")) return "That email already has an account — sign in instead.";
   if (m.includes("rate limit")) return "Too many attempts — wait a minute and try again.";
+  if (m.includes("captcha")) return "Verification failed — please try the checkbox again.";
   if (m.includes("network") || m.includes("fetch")) return "Can't reach the server. Check your connection.";
   return err?.message || "Something went wrong. Try again.";
 }

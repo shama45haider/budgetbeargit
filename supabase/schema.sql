@@ -186,6 +186,29 @@ create policy "members record group achievements"
   with check (public.is_group_member(group_id));
 
 -- ============================================================
+-- TRIGGER: abuse guard — a script looping addContribution() could otherwise
+-- flood the table; this simply rejects inserts faster than 1/second per user.
+-- ============================================================
+
+create or replace function public.guard_contribution_rate()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if exists (
+    select 1 from contributions
+    where user_id = new.user_id
+      and created_at > now() - interval '1 second'
+  ) then
+    raise exception 'too_fast';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists on_contribution_rate_guard on public.contributions;
+create trigger on_contribution_rate_guard
+  before insert on public.contributions
+  for each row execute function public.guard_contribution_rate();
+
+-- ============================================================
 -- TRIGGER: keep group_members.saved = sum of contributions
 -- ============================================================
 
@@ -216,6 +239,12 @@ declare
   v_id uuid;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  -- Abuse guard: stop a script from flooding the database with junk groups.
+  if (select count(*) from groups where created_by = auth.uid()) >= 30 then
+    raise exception 'group_limit_reached';
+  end if;
+
   -- 8-char unambiguous code
   loop
     v_code := upper(substr(replace(replace(encode(extensions.gen_random_bytes(8), 'base64'), '/', ''), '+', ''), 1, 8));

@@ -191,7 +191,7 @@ function openCreateGroup() {
           navigate("/group/" + res.id);
           setTimeout(() => openShareSheet(res.code, name), 450);
         } catch (err) {
-          toast(err.message || "Couldn't create the group");
+          toast(api.friendlyCloudError(err, "Couldn't create the group"));
           btn.disabled = false;
           btn.textContent = "Create group";
         }

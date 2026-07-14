@@ -10,6 +10,15 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
    (Dashboard → Authentication → Providers → Google — see SETUP-SUPABASE.md). */
 export const GOOGLE_AUTH_ENABLED = false;
 
+/* Cloudflare Turnstile (free) stops scripted mass signups, which is the
+   main way a stranger burns through Supabase's email-sending rate limit.
+   Get a site key at dash.cloudflare.com → Turnstile, enable "Captcha
+   protection" in Supabase Dashboard → Authentication → Attack Protection,
+   paste the SECRET key there, then paste the SITE key below and flip this
+   on. See SETUP-SUPABASE.md. */
+export const TURNSTILE_ENABLED = false;
+export const TURNSTILE_SITE_KEY = "";
+
 export function cloudConfigured() {
   return SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
 }

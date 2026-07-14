@@ -273,7 +273,7 @@ function openContribute(state, reload) {
           awardContribution(amount);
           reload({ animate: true });
         } catch (err) {
-          toast(err.message || "Couldn't add that");
+          toast(api.friendlyCloudError(err, "Couldn't add that"));
           btn.disabled = false;
           btn.textContent = "Add to the pot";
         }

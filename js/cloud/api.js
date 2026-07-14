@@ -2,6 +2,17 @@
 
 import { getClient, currentUser } from "./client.js";
 
+/** Turn a raised Postgres exception (or network error) into user-facing text. */
+export function friendlyCloudError(err, fallback = "Something went wrong. Try again.") {
+  const m = (err?.message || "").toLowerCase();
+  if (m.includes("group_limit_reached")) return "You've hit the limit of 30 groups. Delete an old one to create another.";
+  if (m.includes("too_fast")) return "That was fast — wait a second and try again.";
+  if (m.includes("group_full")) return "That group is full (20 members max).";
+  if (m.includes("permission denied")) return "You don't have access to do that.";
+  if (m.includes("failed to fetch") || m.includes("network")) return "Can't reach the server. Check your connection.";
+  return err?.message || fallback;
+}
+
 /* ---------- Groups ---------- */
 
 export async function myGroups() {
