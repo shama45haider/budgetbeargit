@@ -55,7 +55,8 @@ export function renderGroupDetail(view, groupId) {
       Object.assign(state, { group, members, contributions, achievements });
       paint(view, state, load);
       if (prevPositions) playFLIP(view, prevPositions);
-      await detectUnlocks(state);
+      const gotNewUnlocks = await detectUnlocks(state);
+      if (gotNewUnlocks && view.isConnected) paint(view, state, load); // reflect newly-unlocked badges now, not on next load
       markSeen(state.achievements);
     } catch (e) {
       if (!view.isConnected) return;
@@ -362,7 +363,9 @@ function openEditGroup(state, reload) {
 
 /* ---------- group achievement detection ---------- */
 
+/** Returns true if any achievement was newly added to state.achievements this call. */
 async function detectUnlocks(state) {
+  let changed = false;
   for (const a of GROUP_ACHIEVEMENTS) {
     if (state.achievements[a.id]) continue;
     let ok = false;
@@ -371,12 +374,14 @@ async function detectUnlocks(state) {
     try {
       const won = await api.unlockGroupAchievement(state.group.id, a.id);
       state.achievements[a.id] = new Date().toISOString();
+      changed = true;
       if (won && !shownUnlocks.has(state.group.id + a.id)) {
         shownUnlocks.add(state.group.id + a.id);
         showAchievement({ ...a, points: 0 });
       }
     } catch { /* ignore */ }
   }
+  return changed;
 }
 
 /** Realtime-delivered unlocks from other members also deserve a celebration. */

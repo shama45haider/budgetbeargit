@@ -2,6 +2,11 @@
 -- Run this once in the Supabase SQL editor (Dashboard → SQL Editor → New query → paste → Run).
 -- Safe to re-run: statements use IF NOT EXISTS / OR REPLACE where possible.
 
+-- pgcrypto powers gen_random_bytes() used by the invite-code generator below.
+-- Supabase projects always have an "extensions" schema; installing there
+-- (rather than public) is the platform convention.
+create extension if not exists pgcrypto with schema extensions;
+
 -- ============================================================
 -- PROFILES
 -- ============================================================
@@ -73,7 +78,7 @@ create table if not exists public.groups (
 
 create table if not exists public.group_members (
   group_id uuid not null references public.groups (id) on delete cascade,
-  user_id uuid not null references auth.users (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
   accent_color text not null default '#3E7A4D',
   saved numeric(12,2) not null default 0,
   role text not null default 'member' check (role in ('owner','member')),
@@ -84,13 +89,32 @@ create table if not exists public.group_members (
 create table if not exists public.contributions (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.groups (id) on delete cascade,
-  user_id uuid not null references auth.users (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
   amount numeric(12,2) not null check (amount > 0 and amount <= 1000000),
   note text not null default '',
   created_at timestamptz not null default now(),
   constraint note_len check (char_length(note) <= 100)
 );
 create index if not exists contributions_group_idx on public.contributions (group_id, created_at desc);
+
+-- Migration: earlier versions of this schema pointed user_id at auth.users,
+-- which PostgREST can't traverse for embedding (`profiles:user_id(...)`)
+-- since auth.users isn't exposed to it. Repoint at public.profiles instead —
+-- safe because every user gets a profiles row via the signup trigger below,
+-- and profiles.id already references auth.users(id) 1:1.
+do $$ begin
+  alter table public.group_members drop constraint if exists group_members_user_id_fkey;
+  alter table public.group_members
+    add constraint group_members_user_id_fkey
+    foreign key (user_id) references public.profiles (id) on delete cascade;
+exception when others then null; end $$;
+
+do $$ begin
+  alter table public.contributions drop constraint if exists contributions_user_id_fkey;
+  alter table public.contributions
+    add constraint contributions_user_id_fkey
+    foreign key (user_id) references public.profiles (id) on delete cascade;
+exception when others then null; end $$;
 
 create table if not exists public.group_achievements (
   group_id uuid not null references public.groups (id) on delete cascade,
@@ -194,7 +218,7 @@ begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
   -- 8-char unambiguous code
   loop
-    v_code := upper(substr(replace(replace(encode(gen_random_bytes(8), 'base64'), '/', ''), '+', ''), 1, 8));
+    v_code := upper(substr(replace(replace(encode(extensions.gen_random_bytes(8), 'base64'), '/', ''), '+', ''), 1, 8));
     exit when not exists (select 1 from groups where code = v_code);
   end loop;
 
@@ -253,6 +277,28 @@ begin
 end $$;
 
 -- ============================================================
+-- GRANTS
+-- RLS policies only filter rows; Postgres also requires the base table
+-- privilege before a policy is ever evaluated. Without these grants every
+-- query returns "permission denied for table …" regardless of RLS.
+-- ============================================================
+
+grant usage on schema public to authenticated, anon;
+
+grant select, insert, update on public.profiles to authenticated;
+grant select, insert, update, delete on public.groups to authenticated;
+grant select, update, delete on public.group_members to authenticated;
+grant select, insert on public.contributions to authenticated;
+grant select, insert on public.group_achievements to authenticated;
+
+-- The join/create/preview RPCs are SECURITY DEFINER (run as their owner),
+-- but callers still need EXECUTE granted to actually invoke them.
+grant execute on function public.create_group(text, text, text, date, numeric, text) to authenticated;
+grant execute on function public.join_group(text, text) to authenticated;
+grant execute on function public.preview_group(text) to authenticated, anon;
+grant execute on function public.is_group_member(uuid) to authenticated;
+
+-- ============================================================
 -- REALTIME
 -- ============================================================
 
@@ -294,3 +340,10 @@ drop policy if exists "users delete own avatar" on storage.objects;
 create policy "users delete own avatar"
   on storage.objects for delete to authenticated
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================
+-- Force PostgREST to reload its schema cache immediately, so new
+-- foreign keys (and other relationship changes) are visible to the API
+-- right away rather than waiting for its own periodic refresh.
+-- ============================================================
+notify pgrst, 'reload schema';
