@@ -1,4 +1,5 @@
-/* Budget Bear — Profile: points, achievements, settings, data. */
+/* Budget Bear — Profile: Discord-style customizable identity card (cloud)
+   + local points, achievements, settings, and data controls. */
 
 import { get, update, resetAll, exportJSON, importJSON } from "../store.js";
 import { money, esc, shortDate } from "../format.js";
@@ -6,27 +7,31 @@ import { ACHIEVEMENTS } from "../data/achievements.js";
 import { openSheet, toast, confirmSheet, animateNumbers } from "../ui/components.js";
 import { showAchievement } from "../ui/achievement.js";
 import { navigate, refresh } from "../router.js";
+import { currentUser, myProfile, updateProfile, uploadAvatar, signOut } from "../cloud/client.js";
+import { cloudConfigured } from "../cloud/config.js";
+import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
+import { authNext } from "./auth.js";
 
 export function renderProfile(view) {
   const s = get();
   const unlockedCount = Object.keys(s.achievements.unlocked).length;
+  const user = currentUser();
+  const p = myProfile();
 
   view.innerHTML = `
   <div class="screen">
     <header class="screen-header">
       <h1>Profile</h1>
+      ${user ? `<button class="btn-ghost t-small" id="btn-signout">Sign out</button>` : ""}
     </header>
 
-    <section class="card" style="text-align:center;padding:24px">
-      <img src="assets/logo.png" alt="" width="64" height="64" style="margin:0 auto 10px">
-      <h2>${esc(s.profile.name || "Friend of the Bear")}</h2>
-      <div class="t-small t-secondary">Member since ${s.profile.createdAt ? shortDate(s.profile.createdAt) : "today"}${s.profile.demo ? " · demo data" : ""}</div>
-      <div class="profile-stats">
-        <div><strong class="t-num" data-count-to="${s.points.balance}">0</strong><small>Bear Points</small></div>
-        <div><strong class="t-num">${s.points.streak}</strong><small>Day streak</small></div>
-        <div><strong class="t-num">${unlockedCount}</strong><small>Achievements</small></div>
-      </div>
-    </section>
+    ${user && p ? identityCard(p) : signedOutCard()}
+
+    <div class="profile-stats card" style="margin-top:12px">
+      <div><strong class="t-num" data-count-to="${s.points.balance}">0</strong><small>Bear Points</small></div>
+      <div><strong class="t-num">${s.points.streak}</strong><small>Day streak</small></div>
+      <div><strong class="t-num">${unlockedCount}</strong><small>Achievements</small></div>
+    </div>
 
     <h2 class="section-title">Achievements · ${unlockedCount}/${ACHIEVEMENTS.length}</h2>
     <div class="ach-grid">
@@ -60,7 +65,7 @@ export function renderProfile(view) {
     <div class="list">
       <button class="list-row" id="btn-export"><div class="main"><div class="name">Export data</div><div class="meta">Download a JSON backup</div></div><span class="chev">›</span></button>
       <button class="list-row" id="btn-import"><div class="main"><div class="name">Import data</div><div class="meta">Restore from a backup</div></div><span class="chev">›</span></button>
-      <button class="list-row" id="btn-reset"><div class="main"><div class="name" style="color:var(--error)">Start over</div><div class="meta">Erase everything on this device</div></div></button>
+      <button class="list-row" id="btn-reset"><div class="main"><div class="name" style="color:var(--error)">Start over</div><div class="meta">Erase local data on this device</div></div></button>
     </div>
 
     <h2 class="section-title">About</h2>
@@ -68,10 +73,25 @@ export function renderProfile(view) {
       <a class="list-row" href="https://budgetbear.xyz" target="_blank" rel="noopener"><div class="main"><div class="name">budgetbear.xyz</div><div class="meta">Website</div></div><span class="chev">›</span></a>
       <a class="list-row" href="mailto:help@budgetbear.xyz"><div class="main"><div class="name">help@budgetbear.xyz</div><div class="meta">Support</div></div><span class="chev">›</span></a>
     </div>
-    <p class="t-small t-secondary" style="text-align:center;margin-top:20px">Your data never leaves this device.</p>
+    <p class="t-small t-secondary" style="text-align:center;margin-top:20px">
+      Your budget stays on this device.${user ? " Your account stores only your profile and groups." : ""}
+    </p>
   </div>`;
 
   animateNumbers(view);
+
+  view.querySelector("#btn-edit-profile")?.addEventListener("click", () => openEditProfile(view));
+  view.querySelector("#btn-create-profile")?.addEventListener("click", () => {
+    authNext("/profile");
+    navigate("/auth");
+  });
+  view.querySelector("#btn-signout")?.addEventListener("click", async () => {
+    if (await confirmSheet({ title: "Sign out?", body: "Your local budget stays on this device. Groups and profile need you signed in.", confirmLabel: "Sign out" })) {
+      await signOut();
+      toast("Signed out");
+      refresh();
+    }
+  });
 
   view.querySelectorAll("[data-ach]").forEach((b) =>
     b.addEventListener("click", () => {
@@ -91,12 +111,171 @@ export function renderProfile(view) {
   view.querySelector("#btn-export").addEventListener("click", doExport);
   view.querySelector("#btn-import").addEventListener("click", doImport);
   view.querySelector("#btn-reset").addEventListener("click", async () => {
-    if (await confirmSheet({ title: "Erase all data?", body: "This removes your budget, goals, and history from this device. There is no undo.", confirmLabel: "Erase everything", danger: true })) {
+    if (await confirmSheet({ title: "Erase local data?", body: "This removes your budget, goals, and history from this device. Your online account and groups are not affected. No undo.", confirmLabel: "Erase local data", danger: true })) {
       resetAll();
       navigate("/onboarding");
     }
   });
 }
+
+/* ---------- identity card ---------- */
+
+function identityCard(p) {
+  return `
+  <section class="id-card" style="--banner:${esc(p.banner_color)};--accent:${esc(p.accent_color)}">
+    <div class="id-banner"></div>
+    <div class="id-body">
+      <div class="id-avatar-wrap">${bigAvatar(p, 76)}</div>
+      <div class="row" style="align-items:flex-start">
+        <div class="grow">
+          <h2 class="id-name">${esc(p.display_name)}</h2>
+          ${p.pronouns ? `<span class="id-pronouns">${esc(p.pronouns)}</span>` : ""}
+          ${p.status_emoji || p.status_text ? `
+            <div class="id-status">${esc(p.status_emoji)} ${esc(p.status_text)}</div>` : ""}
+        </div>
+        <button class="btn btn-sm btn-secondary" id="btn-edit-profile">Edit profile</button>
+      </div>
+      ${p.about ? `<p class="id-about">${esc(p.about)}</p>` : ""}
+    </div>
+  </section>`;
+}
+
+function bigAvatar(p, size) {
+  if (p.avatar_url) {
+    return `<img class="avatar" src="${esc(p.avatar_url)}" alt="" width="${size}" height="${size}"
+      style="width:${size}px;height:${size}px;border:4px solid var(--surface)">`;
+  }
+  const initial = (p.display_name || "?").trim().charAt(0).toUpperCase();
+  return `<span class="avatar avatar-fallback" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px;border:4px solid var(--surface);background:var(--accent);color:#fff">${esc(initial)}</span>`;
+}
+
+function signedOutCard() {
+  return `
+  <section class="card" style="text-align:center;padding:24px">
+    <img src="assets/logo.png" alt="" width="60" height="60" style="margin:0 auto 10px">
+    <h2>Create your profile</h2>
+    <p class="t-secondary t-small" style="margin:6px auto 14px;max-width:260px">
+      Pick any name, upload an avatar, choose your colors — and unlock Group Links with friends.
+    </p>
+    <button class="btn btn-primary" id="btn-create-profile" style="min-width:200px">
+      ${cloudConfigured() ? "Sign in / create account" : "Setup required"}
+    </button>
+  </section>`;
+}
+
+/* ---------- edit profile sheet with live preview ---------- */
+
+function openEditProfile(view) {
+  const p = myProfile();
+  const draft = {
+    display_name: p.display_name,
+    pronouns: p.pronouns,
+    about: p.about,
+    status_emoji: p.status_emoji,
+    status_text: p.status_text,
+    banner_color: p.banner_color,
+    accent_color: p.accent_color,
+    avatar_url: p.avatar_url,
+  };
+
+  openSheet(`
+    <h2 class="sheet-title">Edit profile</h2>
+    <div id="ep-preview">${identityPreview(draft)}</div>
+    <form id="ep-form" class="stack" style="margin-top:14px">
+      <label class="btn btn-secondary btn-block" style="cursor:pointer">
+        Change avatar
+        <input type="file" id="ep-avatar" accept="image/png,image/jpeg,image/webp" class="visually-hidden">
+      </label>
+      <div class="field"><label class="field-label" for="ep-name">Display name</label>
+        <input class="input" id="ep-name" value="${esc(draft.display_name)}" maxlength="32" required></div>
+      <div class="field"><label class="field-label" for="ep-pronouns">Pronouns (optional)</label>
+        <input class="input" id="ep-pronouns" value="${esc(draft.pronouns)}" maxlength="24" placeholder="they/them"></div>
+      <div class="row">
+        <div class="field" style="width:86px"><label class="field-label" for="ep-emoji">Emoji</label>
+          <input class="input" id="ep-emoji" value="${esc(draft.status_emoji)}" maxlength="4" placeholder="🌴" style="text-align:center"></div>
+        <div class="field grow"><label class="field-label" for="ep-status">Status</label>
+          <input class="input" id="ep-status" value="${esc(draft.status_text)}" maxlength="60" placeholder="Saving for Florida"></div>
+      </div>
+      <div class="field"><label class="field-label" for="ep-about">About me</label>
+        <textarea class="input" id="ep-about" rows="2" maxlength="200" placeholder="A line about you">${esc(draft.about)}</textarea></div>
+      <div class="field"><label class="field-label">Banner color</label>
+        ${accentPickerHTML(draft.banner_color, { name: "banner" })}</div>
+      <div class="field"><label class="field-label">Accent color</label>
+        ${accentPickerHTML(draft.accent_color, { name: "accent" })}</div>
+      <button class="btn btn-primary btn-block" id="ep-save">Save profile</button>
+    </form>
+  `, {
+    onOpen(sheet, close) {
+      const repaint = () => { sheet.querySelector("#ep-preview").innerHTML = identityPreview(draft); };
+      const bind = (id, key) => sheet.querySelector(id).addEventListener("input", (e) => {
+        draft[key] = e.target.value;
+        repaint();
+      });
+      bind("#ep-name", "display_name");
+      bind("#ep-pronouns", "pronouns");
+      bind("#ep-emoji", "status_emoji");
+      bind("#ep-status", "status_text");
+      bind("#ep-about", "about");
+      bindAccentPicker(sheet, "banner", (hex) => { draft.banner_color = hex; repaint(); });
+      bindAccentPicker(sheet, "accent", (hex) => { draft.accent_color = hex; repaint(); });
+
+      sheet.querySelector("#ep-avatar").addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) { toast("Image must be under 2MB"); return; }
+        toast("Uploading…");
+        try {
+          draft.avatar_url = await uploadAvatar(file);
+          repaint();
+          toast("Avatar updated");
+        } catch (err) {
+          toast(err.message || "Upload failed");
+        }
+      });
+
+      sheet.querySelector("#ep-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = sheet.querySelector("#ep-save");
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+        try {
+          await updateProfile({
+            display_name: draft.display_name.trim() || "New Bear",
+            pronouns: draft.pronouns.trim(),
+            about: draft.about.trim(),
+            status_emoji: draft.status_emoji.trim(),
+            status_text: draft.status_text.trim(),
+            banner_color: draft.banner_color,
+            accent_color: draft.accent_color,
+          });
+          close();
+          toast("Profile saved");
+          refresh();
+        } catch (err) {
+          toast(err.message || "Couldn't save");
+          btn.disabled = false;
+          btn.textContent = "Save profile";
+        }
+      });
+    },
+  });
+}
+
+function identityPreview(d) {
+  return `
+  <div class="id-card" style="--banner:${esc(d.banner_color)};--accent:${esc(d.accent_color)}">
+    <div class="id-banner" style="height:56px"></div>
+    <div class="id-body" style="padding-top:0">
+      <div class="id-avatar-wrap" style="margin-top:-30px">${bigAvatar(d, 60)}</div>
+      <h3 class="id-name" style="font-size:var(--fs-16)">${esc(d.display_name || "Your name")}</h3>
+      ${d.pronouns ? `<span class="id-pronouns">${esc(d.pronouns)}</span>` : ""}
+      ${d.status_emoji || d.status_text ? `<div class="id-status">${esc(d.status_emoji)} ${esc(d.status_text)}</div>` : ""}
+      ${d.about ? `<p class="id-about">${esc(d.about)}</p>` : ""}
+    </div>
+  </div>`;
+}
+
+/* ---------- local settings (unchanged behavior) ---------- */
 
 function settingRow(name, value, key) {
   return `<button class="list-row" data-setting="${key}">

@@ -16,7 +16,16 @@ that reasons from your real numbers.
 - **AI Coach** — a deterministic financial-analysis engine that answers "Can I afford $400?", "I want to buy a house", debt payoff (avalanche vs snowball), subscription audits, and more — always with its reasoning shown.
 - **Insights** — plain-English observations, six-factor financial health score, and a 12-month timeline with what-if scenarios (raise, big purchase, extra savings, debt attack).
 - **Bear Points & achievements** — daily check-in streaks and mascot-animated achievement unlocks.
-- **PWA** — installable, offline-first, all data stays in the browser (`localStorage`). No accounts, no servers, no tracking.
+- **PWA** — installable, offline-first, personal budget data stays in the browser (`localStorage`).
+
+## Online team features (Supabase)
+
+- **Accounts & Discord-style profiles** — any display name, avatar upload, banner + accent colors, status, about me.
+- **Group Links** — create a shared goal ("Florida trip"), share one invite link, friends join and race on a **live leaderboard**: everyone gets their own accent color and status bar, and the biggest saver rises to the top in real time.
+- **Group-only achievements** (Squad Assembled, Perfect Week, Photo Finish…) celebrated with the mascot overlay, plus a **daily group tip** computed from the group's real pace.
+- Personal budgets stay on-device; the cloud stores only profiles and groups.
+
+Online features need a one-time free Supabase setup — see **[SETUP-SUPABASE.md](SETUP-SUPABASE.md)**. Without it the app runs exactly as before, fully offline.
 
 ## Architecture
 

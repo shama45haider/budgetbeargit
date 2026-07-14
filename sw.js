@@ -1,6 +1,6 @@
 /* Budget Bear — service worker: offline-first app shell. */
 
-const CACHE = "budgetbear-v3";
+const CACHE = "budgetbear-v4";
 
 const SHELL = [
   "./",
@@ -10,10 +10,20 @@ const SHELL = [
   "css/base.css",
   "css/components.css",
   "css/screens.css",
+  "css/social.css",
   "js/app.js",
   "js/router.js",
   "js/store.js",
   "js/format.js",
+  "js/vendor/supabase.js",
+  "js/cloud/config.js",
+  "js/cloud/client.js",
+  "js/cloud/api.js",
+  "js/data/accents.js",
+  "js/data/groupExtras.js",
+  "js/screens/auth.js",
+  "js/screens/groups.js",
+  "js/screens/groupDetail.js",
   "js/ui/components.js",
   "js/ui/chart.js",
   "js/ui/achievement.js",
@@ -39,11 +49,16 @@ const SHELL = [
   "assets/icons/icon-192.png",
   "assets/icons/icon-512.png",
   "assets/bears/coinbear.png",
+  "assets/bears/coin2bear.png",
   "assets/bears/confusedbear.png",
   "assets/bears/excitedbear.png",
   "assets/bears/graphbear.png",
+  "assets/bears/happybear.png",
+  "assets/bears/achievementbear.png",
   "assets/bears/pointbear.png",
+  "assets/bears/pointbear2.png",
   "assets/bears/thinkbear.png",
+  "assets/banner-wide.png",
 ];
 
 self.addEventListener("install", (e) => {

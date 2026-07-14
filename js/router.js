@@ -1,12 +1,17 @@
 /* Budget Bear — tiny hash router.
-   Routes: #/home #/goals #/budget #/coach #/insights #/profile #/onboarding */
+   Exact routes (#/home) plus parameterized ones (#/group/:id → render(view, id)). */
 
-const routes = new Map();
+const routes = new Map();      // exact path → render(view)
+const paramRoutes = [];        // { parts: ["group", ":id"], render(view, ...params) }
 let currentPath = null;
 let beforeEach = null;
 
 export function register(path, render) {
-  routes.set(path, render);
+  if (path.includes(":")) {
+    paramRoutes.push({ parts: path.replace(/^\//, "").split("/"), render });
+  } else {
+    routes.set(path, render);
+  }
 }
 
 export function setGuard(fn) {
@@ -22,6 +27,21 @@ export function current() {
   return currentPath;
 }
 
+function matchParam(path) {
+  const segs = path.replace(/^\//, "").split("/");
+  for (const r of paramRoutes) {
+    if (r.parts.length !== segs.length) continue;
+    const params = [];
+    let ok = true;
+    for (let i = 0; i < segs.length; i++) {
+      if (r.parts[i].startsWith(":")) params.push(decodeURIComponent(segs[i]));
+      else if (r.parts[i] !== segs[i]) { ok = false; break; }
+    }
+    if (ok) return { render: r.render, params };
+  }
+  return null;
+}
+
 function render() {
   let path = location.hash.replace(/^#/, "") || "/home";
   if (beforeEach) {
@@ -31,11 +51,19 @@ function render() {
       return;
     }
   }
-  const handler = routes.get(path) || routes.get("/home");
-  currentPath = path;
   const view = document.getElementById("view");
+  currentPath = path;
   view.innerHTML = "";
-  handler(view);
+
+  const exact = routes.get(path);
+  if (exact) {
+    exact(view);
+  } else {
+    const m = matchParam(path);
+    if (m) m.render(view, ...m.params);
+    else routes.get("/home")(view);
+  }
+
   view.scrollTop = 0;
   window.scrollTo(0, 0);
   updateNav(path);
