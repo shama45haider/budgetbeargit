@@ -234,6 +234,22 @@
   border-bottom-right-radius: 6px;
 }
 
+.chat-sender {
+  font-size: var(--fs-11);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+  margin: 0 3px 3px;
+}
+.chat-time {
+  font-size: var(--fs-11);
+  color: var(--text-2);
+  margin: 3px 3px 0;
+}
+.chat-time-mine {
+  text-align: right;
+  color: var(--text-2);
+}
+
 .coach-screen {
   display: flex;
   flex-direction: column;

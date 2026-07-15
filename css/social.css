@@ -198,14 +198,23 @@
   color: var(--accent, var(--green-700));
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  flex-shrink: 0;
 }
+.member-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+}
+.member-badges > * { flex-shrink: 0; }
 .member-status {
   font-size: var(--fs-12);
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
+  max-width: 140px;
 }
 .member-bar {
   height: 6px;

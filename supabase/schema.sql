@@ -622,6 +622,7 @@ grant execute on function public.redeem_code(text) to authenticated;
 
 alter table public.profiles add column if not exists ai_msg_count int not null default 0;
 alter table public.profiles add column if not exists ai_msg_date date;
+alter table public.profiles add column if not exists ai_last_msg_at timestamptz;
 
 create or replace function public.use_ai_message(p_daily_limit int default 20)
 returns json language plpgsql security definer set search_path = public as $$
@@ -629,10 +630,18 @@ declare
   v_today date := (now() at time zone 'utc')::date;
   v_count int;
   v_date date;
+  v_last timestamptz;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
 
-  select ai_msg_count, ai_msg_date into v_count, v_date from profiles where id = auth.uid() for update;
+  select ai_msg_count, ai_msg_date, ai_last_msg_at into v_count, v_date, v_last
+    from profiles where id = auth.uid() for update;
+
+  -- Abuse guard: a signed-in bot could otherwise burn the whole daily quota
+  -- in a fraction of a second. Mirrors guard_contribution_rate's pattern.
+  if v_last is not null and v_last > now() - interval '2 seconds' then
+    return json_build_object('error', 'too_fast');
+  end if;
 
   if v_date is distinct from v_today then
     v_count := 0;
@@ -642,12 +651,95 @@ begin
     return json_build_object('error', 'quota_exceeded', 'limit', p_daily_limit);
   end if;
 
-  update profiles set ai_msg_count = v_count + 1, ai_msg_date = v_today where id = auth.uid();
+  update profiles
+     set ai_msg_count = v_count + 1, ai_msg_date = v_today, ai_last_msg_at = now()
+   where id = auth.uid();
 
   return json_build_object('ok', true, 'remaining', p_daily_limit - (v_count + 1));
 end $$;
 
 grant execute on function public.use_ai_message(int) to authenticated;
+
+-- ============================================================
+-- V6: GROUP CHAT + OWNER-ASSIGNED PER-MEMBER GOALS
+-- ============================================================
+
+-- ---------- Group chat ----------
+
+create table if not exists public.group_messages (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now(),
+  constraint body_len check (char_length(body) between 1 and 500)
+);
+create index if not exists group_messages_group_idx on public.group_messages (group_id, created_at desc);
+
+alter table public.group_messages enable row level security;
+
+drop policy if exists "members read group messages" on public.group_messages;
+create policy "members read group messages"
+  on public.group_messages for select to authenticated using (public.is_group_member(group_id));
+-- inserts happen only via send_group_message (security definer)
+
+create or replace function public.send_group_message(p_group_id uuid, p_body text)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_last timestamptz;
+  v_body text := trim(p_body);
+  v_row group_messages%rowtype;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  if not public.is_group_member(p_group_id) then raise exception 'not_a_member'; end if;
+  if char_length(v_body) < 1 or char_length(v_body) > 500 then
+    return json_build_object('error', 'bad_length');
+  end if;
+
+  select created_at into v_last from group_messages
+    where group_id = p_group_id and user_id = auth.uid()
+    order by created_at desc limit 1;
+  if v_last is not null and v_last > now() - interval '1.5 seconds' then
+    return json_build_object('error', 'too_fast');
+  end if;
+
+  insert into group_messages (group_id, user_id, body)
+    values (p_group_id, auth.uid(), v_body)
+    returning * into v_row;
+
+  return json_build_object('ok', true, 'id', v_row.id, 'created_at', v_row.created_at);
+end $$;
+
+grant select on public.group_messages to authenticated;
+grant execute on function public.send_group_message(uuid, text) to authenticated;
+
+do $$ begin
+  alter publication supabase_realtime add table public.group_messages;
+exception when duplicate_object then null; end $$;
+
+-- ---------- Owner-assigned per-member goals ----------
+
+alter table public.group_members add column if not exists custom_target numeric(12,2);
+
+create or replace function public.set_member_target(p_group_id uuid, p_member_id uuid, p_target numeric)
+returns json language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  if not exists (select 1 from groups where id = p_group_id and created_by = auth.uid()) then
+    return json_build_object('error', 'not_owner');
+  end if;
+  if p_target is not null and p_target <= 0 then
+    return json_build_object('error', 'bad_target');
+  end if;
+
+  update group_members set custom_target = p_target
+   where group_id = p_group_id and user_id = p_member_id;
+
+  if not found then return json_build_object('error', 'not_a_member'); end if;
+  return json_build_object('ok', true);
+end $$;
+
+grant execute on function public.set_member_target(uuid, uuid, numeric) to authenticated;
 
 -- ============================================================
 -- Force PostgREST to reload its schema cache immediately, so new

@@ -12,6 +12,7 @@ import { renderOnboarding } from "./screens/onboarding.js";
 import { renderAuth } from "./screens/auth.js";
 import { renderGroups, renderJoin } from "./screens/groups.js";
 import { renderGroupDetail } from "./screens/groupDetail.js";
+import { renderGroupChat } from "./screens/groupChat.js";
 import { renderShop } from "./screens/shop.js";
 import { renderPlans } from "./screens/plans.js";
 import { initCloud, onAuthChange, currentUser, myProfile } from "./cloud/client.js";
@@ -55,6 +56,7 @@ router.register("/auth", renderAuth);
 router.register("/shop", renderShop);
 router.register("/plans", renderPlans);
 router.register("/group/:id", renderGroupDetail);
+router.register("/group/:id/chat", renderGroupChat);
 router.register("/join/:code", renderJoin);
 
 router.setGuard((path) => {

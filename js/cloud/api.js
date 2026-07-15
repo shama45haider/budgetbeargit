@@ -87,7 +87,7 @@ export async function groupMembers(groupId) {
   const c = getClient();
   const { data, error } = await c
     .from("group_members")
-    .select("user_id, saved, accent_color, role, joined_at, profiles:user_id(display_name, avatar_url, status_emoji, status_text, accent_color, equipped, lifetime_points)")
+    .select("user_id, saved, accent_color, role, joined_at, custom_target, profiles:user_id(display_name, avatar_url, status_emoji, status_text, accent_color, equipped, lifetime_points)")
     .eq("group_id", groupId);
   if (error) throw error;
   return (data || []).map((m) => ({
@@ -96,6 +96,7 @@ export async function groupMembers(groupId) {
     accent: m.accent_color || m.profiles?.accent_color || "#3E7A4D",
     role: m.role,
     joinedAt: m.joined_at,
+    customTarget: m.custom_target != null ? Number(m.custom_target) : null,
     name: m.profiles?.display_name || "Member",
     avatar: m.profiles?.avatar_url || null,
     statusEmoji: m.profiles?.status_emoji || "",
@@ -111,6 +112,16 @@ export async function setMyGroupAccent(groupId, accent) {
     .update({ accent_color: accent })
     .eq("group_id", groupId).eq("user_id", currentUser().id);
   if (error) throw error;
+}
+
+/** Owner-only: assign (or clear, with target=null) a member's custom savings target. */
+export async function setMemberTarget(groupId, memberUserId, target) {
+  const c = getClient();
+  const { data, error } = await c.rpc("set_member_target", {
+    p_group_id: groupId, p_member_id: memberUserId, p_target: target,
+  });
+  if (error) throw error;
+  return data; // { ok: true } or { error }
 }
 
 /* ---------- Contributions ---------- */
@@ -234,4 +245,44 @@ export async function redeemCode(code) {
   const { data, error } = await c.rpc("redeem_code", { p_code: code });
   if (error) throw error;
   return data;
+}
+
+/* ---------- Group Chat ---------- */
+
+export async function sendGroupMessage(groupId, body) {
+  const c = getClient();
+  const { data, error } = await c.rpc("send_group_message", { p_group_id: groupId, p_body: body });
+  if (error) throw error;
+  return data; // { ok: true, id, created_at } or { error }
+}
+
+export async function recentMessages(groupId, limit = 50) {
+  const c = getClient();
+  const { data, error } = await c
+    .from("group_messages")
+    .select("id, user_id, body, created_at, profiles:user_id(display_name, avatar_url)")
+    .eq("group_id", groupId)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []).map((m) => ({
+    id: m.id,
+    userId: m.user_id,
+    body: m.body,
+    at: m.created_at,
+    name: m.profiles?.display_name || "Member",
+    avatar: m.profiles?.avatar_url || null,
+  }));
+}
+
+/** Live chat for one group — a channel of its own so a new message never
+    triggers a full leaderboard/achievement reload (see subscribeGroup). */
+export function subscribeGroupChat(groupId, onInsert) {
+  const c = getClient();
+  const channel = c.channel("group-chat-" + groupId)
+    .on("postgres_changes",
+      { event: "INSERT", schema: "public", table: "group_messages", filter: "group_id=eq." + groupId },
+      onInsert)
+    .subscribe();
+  return () => c.removeChannel(channel);
 }

@@ -6,7 +6,7 @@ import { currentUser } from "../cloud/client.js";
 import * as api from "../cloud/api.js";
 import { openSheet, toast, confirmSheet } from "../ui/components.js";
 import { showAchievement } from "../ui/achievement.js";
-import { GROUP_ACHIEVEMENTS, groupAchievementById, goalTarget, dailyTip } from "../data/groupExtras.js";
+import { GROUP_ACHIEVEMENTS, groupAchievementById, goalTarget, memberTarget, dailyTip } from "../data/groupExtras.js";
 import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
 import { avatarHTML, openShareSheet } from "./groups.js";
 import { flairStyle, effectClass, tagHTML, levelFor } from "../data/shop.js";
@@ -91,6 +91,7 @@ function paint(view, state, reload) {
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
       </button>
       <div class="grow"></div>
+      <button class="btn btn-sm btn-secondary" id="gd-chat">💬 Chat</button>
       <button class="btn btn-sm btn-secondary" id="gd-invite">Invite</button>
       <button class="wizard-back" id="gd-menu" aria-label="Group options">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
@@ -159,6 +160,7 @@ function paint(view, state, reload) {
   </div>`;
 
   view.querySelector("#gd-back").addEventListener("click", () => navigate("/groups"));
+  view.querySelector("#gd-chat").addEventListener("click", () => navigate("/group/" + group.id + "/chat"));
   view.querySelector("#gd-invite").addEventListener("click", () => openShareSheet(group.code, group.name));
   view.querySelector("#gd-add").addEventListener("click", () => openContribute(state, reload));
   view.querySelector("#gd-menu").addEventListener("click", () => openGroupMenu(state, isOwner, reload));
@@ -172,8 +174,8 @@ function paint(view, state, reload) {
 }
 
 function memberRow(m, index, group, myId) {
-  const per = Number(group.per_person);
-  const p = per ? Math.min(100, Math.round((m.saved / per) * 100)) : 0;
+  const target = memberTarget(group, m);
+  const p = target ? Math.min(100, Math.round((m.saved / target) * 100)) : 0;
   const isMe = m.userId === myId;
   const rank = index + 1;
   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `<span class="rank-num">${rank}</span>`;
@@ -188,15 +190,17 @@ function memberRow(m, index, group, myId) {
       <div class="grow" style="min-width:0">
         <div class="row" style="gap:6px">
           <span class="member-name ${fx}">${esc(m.name)}</span>${isMe ? '<span class="you-tag">you</span>' : ""}
-          ${tagHTML(m.equipped)}
+        </div>
+        <div class="member-badges">
           <span class="level-chip">Lv ${lvl.level}</span>
+          ${tagHTML(m.equipped)}
           ${m.statusEmoji || m.statusText ? `<span class="member-status">${esc(m.statusEmoji)} ${esc(m.statusText)}</span>` : ""}
         </div>
         <div class="member-bar"><i style="width:${p}%"></i></div>
       </div>
       <div class="end">
         <div class="amount t-num">${money(m.saved)}</div>
-        <div class="meta t-num">${p}%</div>
+        <div class="meta t-num">${p}%${m.customTarget != null ? ` <span class="t-secondary">of ${money(target)}</span>` : ""}</div>
       </div>
     </div>
   </div>`;
@@ -229,10 +233,10 @@ function playFLIP(view, prev) {
 
 function openContribute(state, reload) {
   const { group } = state;
-  const per = Number(group.per_person);
   const me = state.members.find((m) => m.userId === currentUser().id);
-  const remainingMine = Math.max(0, per - (me?.saved || 0));
-  const suggest = [10, 25, 50, 100].filter((v) => v <= Math.max(10, remainingMine || per));
+  const myTarget = me ? memberTarget(group, me) : Number(group.per_person);
+  const remainingMine = Math.max(0, myTarget - (me?.saved || 0));
+  const suggest = [10, 25, 50, 100].filter((v) => v <= Math.max(10, remainingMine || myTarget));
 
   openSheet(`
     <h2 class="sheet-title">${group.icon} Add savings</h2>
@@ -299,6 +303,7 @@ function openGroupMenu(state, isOwner, reload) {
       ${accentPickerHTML(myAccent, { name: "gm" })}</div>
     <div class="stack" style="margin-top:16px">
       ${isOwner ? `<button class="btn btn-secondary btn-block" id="gm-edit">Edit group details</button>` : ""}
+      ${isOwner ? `<button class="btn btn-secondary btn-block" id="gm-targets">Assign goals</button>` : ""}
       ${isOwner
         ? `<button class="btn btn-danger-ghost btn-block" id="gm-delete">Delete group</button>`
         : `<button class="btn btn-danger-ghost btn-block" id="gm-leave">Leave group</button>`}
@@ -313,6 +318,7 @@ function openGroupMenu(state, isOwner, reload) {
         } catch { toast("Couldn't update color"); }
       });
       sheet.querySelector("#gm-edit")?.addEventListener("click", () => { close(); openEditGroup(state, reload); });
+      sheet.querySelector("#gm-targets")?.addEventListener("click", () => { close(); openAssignGoals(state, reload); });
       sheet.querySelector("#gm-delete")?.addEventListener("click", async () => {
         close();
         if (await confirmSheet({ title: "Delete " + group.name + "?", body: "This removes the group and its history for every member. There is no undo.", confirmLabel: "Delete for everyone", danger: true })) {
@@ -362,6 +368,62 @@ function openEditGroup(state, reload) {
           await api.updateGroup(group.id, { name, description, per_person: per, target_date });
           close(); toast("Group updated"); reload();
         } catch (err) { toast(err.message || "Couldn't save"); }
+      });
+    },
+  });
+}
+
+/* ---------- assign per-member goals (owner only) ---------- */
+
+function openAssignGoals(state, reload) {
+  const { group, members } = state;
+  const defaultAmt = Number(group.per_person);
+
+  openSheet(`
+    <h2 class="sheet-title">Assign goals</h2>
+    <p class="t-secondary t-small" style="margin-bottom:14px">
+      Optional — give someone a different target than the group default (${money(defaultAmt)}).
+      Leave a box on "Default" to keep it uniform.</p>
+    <div class="stack" id="ag-list">
+      ${members.map((m) => `
+        <div class="row" data-member-row="${m.userId}">
+          ${avatarHTML(m, 32)}
+          <div class="grow t-small" style="font-weight:var(--fw-medium)">${esc(m.name)}</div>
+          <div class="amount-input-wrap" style="width:120px">
+            <span class="currency" style="font-size:var(--fs-14)">$</span>
+            <input class="input" style="min-height:42px;font-size:var(--fs-14)" inputmode="decimal"
+              data-target-input placeholder="Default" value="${m.customTarget != null ? m.customTarget : ""}">
+          </div>
+        </div>`).join("")}
+    </div>
+    <button class="btn btn-primary btn-block" style="margin-top:16px" id="ag-save">Save goals</button>
+  `, {
+    onOpen(sheet, close) {
+      sheet.querySelector("#ag-save").addEventListener("click", async () => {
+        const btn = sheet.querySelector("#ag-save");
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+        try {
+          const rows = [...sheet.querySelectorAll("[data-member-row]")];
+          for (const row of rows) {
+            const memberId = row.dataset.memberRow;
+            const input = row.querySelector("[data-target-input]");
+            const raw = input.value.trim();
+            const val = raw === "" ? null : parseFloat(raw.replace(/[^0-9.]/g, ""));
+            if (val != null && (isNaN(val) || val <= 0)) continue; // skip invalid, don't block the rest
+            const current = members.find((m) => m.userId === memberId)?.customTarget ?? null;
+            if (val === current) continue; // unchanged
+            const res = await api.setMemberTarget(group.id, memberId, val);
+            if (res?.error) toast(api.friendlyCloudError({ message: res.error }, "Couldn't update a goal"));
+          }
+          close();
+          toast("Goals updated");
+          reload();
+        } catch (err) {
+          toast(api.friendlyCloudError(err, "Couldn't save goals"));
+          btn.disabled = false;
+          btn.textContent = "Save goals";
+        }
       });
     },
   });

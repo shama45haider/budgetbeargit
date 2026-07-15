@@ -71,6 +71,9 @@ Deno.serve(async (req: Request) => {
     if (quota?.error === "quota_exceeded") {
       return json({ error: "quota_exceeded", limit: quota.limit }, 429);
     }
+    if (quota?.error === "too_fast") {
+      return json({ error: "too_fast" }, 429);
+    }
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",

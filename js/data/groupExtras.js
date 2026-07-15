@@ -59,7 +59,7 @@ export const GROUP_ACHIEVEMENTS = [
     title: "Heavy Lifter",
     desc: "A member hit their full personal target.",
     bear: "graphbear.png",
-    check: ({ group, members }) => members.some((m) => m.saved >= Number(group.per_person)),
+    check: ({ group, members }) => members.some((m) => m.saved >= memberTarget(group, m)),
   },
   {
     id: "photo-finish",
@@ -78,8 +78,14 @@ function total(members) {
   return members.reduce((a, m) => a + m.saved, 0);
 }
 
+/** Each member's target: their owner-assigned custom amount, or the group default. */
+export function memberTarget(group, member) {
+  return member.customTarget ?? Number(group.per_person);
+}
+
 export function goalTarget(group, members) {
-  return Number(group.per_person) * Math.max(1, members.length);
+  if (!members.length) return Number(group.per_person);
+  return members.reduce((a, m) => a + memberTarget(group, m), 0);
 }
 
 export function groupAchievementById(id) {
@@ -95,7 +101,8 @@ export function dailyTip({ group, members, myUserId }) {
   const remaining = Math.max(0, target - t);
   const me = members.find((m) => m.userId === myUserId);
   const leader = members[0];
-  const per = Number(group.per_person);
+  const per = Number(group.per_person); // group default; used for generic group-wide suggestions
+  const myTarget = me ? memberTarget(group, me) : per;
 
   const daysLeft = group.target_date
     ? Math.max(0, Math.ceil((new Date(group.target_date + "T12:00") - new Date()) / 86400000))
@@ -117,8 +124,8 @@ export function dailyTip({ group, members, myUserId }) {
       const gap = leader.saved - me.saved;
       if (gap > 0) tips.push(`You're ${money(gap)} behind ${leader.name}. One skipped takeout order a week closes that in about a month.`);
     }
-    if (me && me.saved < per * 0.25) {
-      tips.push(`Fastest start: move ${money(Math.min(25, per * 0.05))} right after payday, before it can get spent.`);
+    if (me && me.saved < myTarget * 0.25) {
+      tips.push(`Fastest start: move ${money(Math.min(25, myTarget * 0.05))} right after payday, before it can get spent.`);
     }
     if (remaining > 0 && remaining <= per * 0.5) {
       tips.push(`Only ${money(remaining)} to go as a group — one good week could finish this.`);
