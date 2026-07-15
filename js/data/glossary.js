@@ -66,7 +66,7 @@ export const GLOSSARY = {
   },
   "bear-points": {
     title: "Bear Points",
-    body: "Points you earn for good money habits — daily check-ins, adding to goals, keeping streaks. Spend them in the Shop on cool looks for your profile that your friends can see.",
+    body: "Points you earn for good money habits — the Daily Spin, daily check-ins, adding to goals, keeping streaks. Spend them in the Shop on themes and cool looks for your profile that your friends can see.",
   },
   "level": {
     title: "Levels",

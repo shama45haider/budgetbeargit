@@ -219,3 +219,19 @@ export async function myItems() {
   if (error) throw error;
   return (data || []).map((r) => r.item_id);
 }
+
+/** One spin per UTC day; the server picks the prize. Returns {prize, points, balance} or {error}. */
+export async function dailySpin() {
+  const c = getClient();
+  const { data, error } = await c.rpc("daily_spin");
+  if (error) throw error;
+  return data;
+}
+
+/** Redeem a supporter code for the thank-you bundle. */
+export async function redeemCode(code) {
+  const c = getClient();
+  const { data, error } = await c.rpc("redeem_code", { p_code: code });
+  if (error) throw error;
+  return data;
+}

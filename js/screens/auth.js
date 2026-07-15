@@ -6,7 +6,7 @@ import { cloudReady, signIn, signUp, sendMagicLink, signInWithGoogle, currentUse
 import { toast, confirmSheet } from "../ui/components.js";
 import { showLoader, hideLoader } from "../ui/loader.js";
 import { navigate } from "../router.js";
-import { get, update } from "../store.js";
+import { get, update, resetAll } from "../store.js";
 import { buildSeed } from "../data/seed.js";
 import { onSignedIn } from "../engine/points.js";
 
@@ -163,12 +163,23 @@ export function renderAuth(view) {
       } else {
         await signIn(email, pass, captchaToken);
       }
-      // Coming from the demo? Keep the local budget, drop the demo label.
-      if (get().profile.demo) update((s) => { s.profile.demo = false; });
-      onSignedIn(); // syncs points with the cloud (and migrates local points once)
+      // Coming from the demo? The sample budget, points, and achievements are
+      // Sam's, not theirs — wipe local state so nothing fake becomes real, and
+      // make sure zero demo points migrate to the cloud.
+      const fromDemo = get().profile.demo;
+      if (fromDemo) {
+        resetAll();
+        update((s) => { s.settings.pointsMigrated = true; });
+      }
+      onSignedIn(); // syncs points with the cloud (and migrates genuine local points once)
       hideLoader();
       toast(mode === "signup" ? "Welcome to Budget Bear" : "Signed in");
-      navigate(consumeAuthNext());
+      if (fromDemo) {
+        sessionStorage.removeItem("bb.authNext");
+        navigate("/onboarding"); // build their real budget from scratch
+      } else {
+        navigate(consumeAuthNext());
+      }
     } catch (err) {
       hideLoader();
       toast(friendly(err));

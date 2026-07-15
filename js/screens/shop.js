@@ -85,7 +85,7 @@ function paint(view, profile) {
     ${section("Name effects", "Make your username move, shine, and sparkle", "effect", equipped)}
 
     <p class="t-small t-secondary" style="text-align:center;margin:20px 0 4px">
-      Earn points with daily check-ins, goal savings, and achievements.
+      Earn points with the Daily Spin, daily check-ins, goal savings, and achievements.
     </p>`;
 
   animateNumbers(view);
@@ -133,6 +133,8 @@ function section(title, subtitle, type, equipped) {
           ${item.tagline ? `<span class="theme-tagline">${esc(item.tagline)}</span>` : ""}
           ${isEquipped ? `<span class="shop-state on">Equipped</span>`
             : isOwned ? `<span class="shop-state">Owned</span>`
+            : item.exclusive === "spin" ? `<span class="shop-price">🎡 Daily Spin prize</span>`
+            : item.exclusive === "donate" ? `<span class="shop-price">💛 Supporter reward</span>`
             : `<span class="shop-price">${item.price} pts</span>`}
         </button>`;
       }).join("")}
@@ -174,7 +176,9 @@ function openItem(itemId, profile, view) {
     ${isOwned ? `
       <button class="btn ${isEquipped ? "btn-secondary" : "btn-primary"} btn-block" id="shop-equip">
         ${isEquipped ? "Take it off" : "Wear it"}
-      </button>` : `
+      </button>` : item.exclusive === "spin" ? `
+      <div class="callout"><span>🎡</span><div>This one can't be bought — it's a rare prize on the <strong>Daily Spin</strong>. Spin every day for a chance!</div></div>` : item.exclusive === "donate" ? `
+      <div class="callout"><span>💛</span><div>A thank-you reserved for supporters. Check <strong>Support Budget Bear</strong> on your Profile.</div></div>` : `
       <button class="btn btn-primary btn-block" id="shop-buy" ${canAfford ? "" : "disabled"}>
         Buy for ${item.price} points
       </button>
@@ -241,7 +245,7 @@ function paintBrowseOnly(view) {
           <div class="shop-tile locked-tile ${item.type === "theme" ? "theme-tile" : ""}">
             ${swatch(item)}
             <small>${esc(item.name)}</small>
-            <span class="shop-price">${item.price} pts</span>
+            <span class="shop-price">${item.exclusive === "spin" ? "🎡 Daily Spin prize" : item.exclusive === "donate" ? "💛 Supporter reward" : item.price + " pts"}</span>
           </div>`).join("")}
       </div>`).join("")}
     <button class="btn btn-primary btn-block" style="margin-top:16px" id="shop-signup">Create a free account</button>`;

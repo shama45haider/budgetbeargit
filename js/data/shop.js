@@ -20,6 +20,12 @@ export const SHOP_ITEMS = [
     css: "linear-gradient(130deg,#00c9a7,#7FC96A 40%,#845ec2 90%)" },
   { id: "flair-gold",    type: "flair", name: "Gold Foil",   price: 600,
     css: "linear-gradient(120deg,#b8860b,#ffd700 45%,#fff3b0 60%,#ffd700 75%,#b8860b)" },
+  { id: "flair-lucky",   type: "flair", name: "Lucky Clover", price: 999999, exclusive: "spin",
+    css: "linear-gradient(120deg,#1f7a33,#7FC96A 30%,#eaffde 50%,#7FC96A 70%,#1f7a33) 0 0/250% 100%",
+    anim: "flair-flow 5s linear infinite" },
+  { id: "flair-crown",   type: "flair", name: "Aurora Crown", price: 999999, exclusive: "donate",
+    css: "linear-gradient(115deg,#00d4a0,#7FC96A 25%,#4aa8ff 50%,#b06ce8 75%,#00d4a0) 0 0/300% 100%",
+    anim: "flair-flow 8s ease-in-out infinite" },
 
   /* ---------- Tags: slogan pills next to your name ---------- */
   { id: "tag-penny",       type: "tag", name: "Penny Pincher",      price: 100, color: "#3E7A4D" },
@@ -30,6 +36,8 @@ export const SHOP_ITEMS = [
   { id: "tag-slayer",      type: "tag", name: "Debt Slayer",        price: 300, color: "#B9704F" },
   { id: "tag-millionaire", type: "tag", name: "Future Millionaire", price: 350, color: "#2E3440" },
   { id: "tag-ceo",         type: "tag", name: "CEO of Saving",      price: 400, color: "#2D5C3A" },
+  { id: "tag-jackpot",     type: "tag", name: "Jackpot 🎰",          price: 999999, exclusive: "spin", color: "#C9A227" },
+  { id: "tag-supporter",   type: "tag", name: "Early Supporter 💛",  price: 999999, exclusive: "donate", color: "#c98b27" },
 
   /* ---------- Effects: animated username styles ---------- */
   { id: "fx-shimmer", type: "effect", name: "Shimmer",     price: 300, cls: "fx-shimmer" },
@@ -52,6 +60,15 @@ export const SHOP_ITEMS = [
   { id: "theme-royal", type: "theme", name: "Royal Gold", price: 1500,
     tagline: "Black-and-gold luxury with a golden shimmer",
     mock: { bg: "#14120c", surface: "#1e1b12", accent: "#c9a227", text: "#f3ecd8" } },
+  { id: "theme-amethyst", type: "theme", name: "Amethyst Haze", price: 800,
+    tagline: "Dreamy purple with soft light orbs floating by",
+    mock: { bg: "#f7f3fc", surface: "#ffffff", accent: "#8b5fc7", text: "#2a2033" } },
+  { id: "theme-moneyrain", type: "theme", name: "Money Rain", price: 1200,
+    tagline: "Bank-vault green and gold — cash literally falls",
+    mock: { bg: "#0c1410", surface: "#14211a", accent: "#3fae62", text: "#e6f0e8" } },
+  { id: "theme-crimson", type: "theme", name: "Crimson Ember", price: 800,
+    tagline: "Smoldering dark red with embers drifting up",
+    mock: { bg: "#160e0e", surface: "#211414", accent: "#d94f4f", text: "#f2e6e4" } },
 ];
 
 export function shopItem(id) {
@@ -94,7 +111,8 @@ export function levelFor(lifetimePoints = 0) {
 /** Inline style for a flair background, or "" if none/unknown. */
 export function flairStyle(equipped) {
   const item = equipped?.flair ? shopItem(equipped.flair) : null;
-  return item ? `background:${item.css};` : "";
+  if (!item) return "";
+  return `background:${item.css};${item.anim ? `animation:${item.anim};` : ""}`;
 }
 
 /** Class for a name effect, or "". */

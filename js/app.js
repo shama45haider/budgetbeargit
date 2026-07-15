@@ -13,6 +13,7 @@ import { renderAuth } from "./screens/auth.js";
 import { renderGroups, renderJoin } from "./screens/groups.js";
 import { renderGroupDetail } from "./screens/groupDetail.js";
 import { renderShop } from "./screens/shop.js";
+import { renderPlans } from "./screens/plans.js";
 import { initCloud, onAuthChange, currentUser, myProfile } from "./cloud/client.js";
 import { showLoader, hideLoader } from "./ui/loader.js";
 import { applyCachedTheme, applyTheme } from "./ui/theme.js";
@@ -52,6 +53,7 @@ router.register("/profile", renderProfile);
 router.register("/onboarding", renderOnboarding);
 router.register("/auth", renderAuth);
 router.register("/shop", renderShop);
+router.register("/plans", renderPlans);
 router.register("/group/:id", renderGroupDetail);
 router.register("/join/:code", renderJoin);
 

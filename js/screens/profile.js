@@ -8,7 +8,8 @@ import { openSheet, toast, confirmSheet, animateNumbers } from "../ui/components
 import { showAchievement } from "../ui/achievement.js";
 import { navigate, refresh } from "../router.js";
 import { currentUser, myProfile, updateProfile, uploadAvatar, signOut } from "../cloud/client.js";
-import { cloudConfigured } from "../cloud/config.js";
+import { cloudConfigured, DONATE_URL } from "../cloud/config.js";
+import { redeemCode, friendlyCloudError } from "../cloud/api.js";
 import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
 import { authNext } from "./auth.js";
 import { flairStyle, effectClass, tagHTML, levelFor } from "../data/shop.js";
@@ -86,6 +87,8 @@ export function renderProfile(view) {
 
     <h2 class="section-title">About</h2>
     <div class="list">
+      <button class="list-row" id="btn-plans"><div class="main"><div class="name">Budget Bear Plans</div><div class="meta">Free, Premium, and Business</div></div><span class="chev">›</span></button>
+      ${user && (DONATE_URL || true) ? `<button class="list-row" id="btn-support"><div class="main"><div class="name">♥ Support Budget Bear</div><div class="meta">Help keep the bear fed — get an exclusive thank-you</div></div><span class="chev">›</span></button>` : ""}
       <a class="list-row" href="https://budgetbear.xyz" target="_blank" rel="noopener"><div class="main"><div class="name">budgetbear.xyz</div><div class="meta">Website</div></div><span class="chev">›</span></a>
       <a class="list-row" href="mailto:help@budgetbear.xyz"><div class="main"><div class="name">help@budgetbear.xyz</div><div class="meta">Support</div></div><span class="chev">›</span></a>
     </div>
@@ -127,6 +130,8 @@ export function renderProfile(view) {
   view.querySelectorAll("[data-setting]").forEach((b) =>
     b.addEventListener("click", () => openSetting(b.dataset.setting)));
 
+  view.querySelector("#btn-plans").addEventListener("click", () => navigate("/plans"));
+  view.querySelector("#btn-support")?.addEventListener("click", openSupportSheet);
   view.querySelector("#btn-export").addEventListener("click", doExport);
   view.querySelector("#btn-import").addEventListener("click", doImport);
   view.querySelector("#btn-reset").addEventListener("click", async () => {
@@ -297,6 +302,56 @@ function identityPreview(d) {
       ${d.about ? `<p class="id-about">${esc(d.about)}</p>` : ""}
     </div>
   </div>`;
+}
+
+/* ---------- Support Budget Bear ---------- */
+
+function openSupportSheet() {
+  openSheet(`
+    <h2 class="sheet-title">♥ Support Budget Bear</h2>
+    <p class="t-secondary" style="font-size:var(--fs-14);line-height:1.5;margin-bottom:14px">
+      Budget Bear is free to use. If it's helped your money, a small donation keeps
+      it running — and earns you a thank-you nobody can buy:</p>
+    <div class="list" style="margin-bottom:14px">
+      <div class="list-row" style="min-height:48px"><div class="icon-bubble">👑</div>
+        <div class="main"><div class="name">Aurora Crown flair</div><div class="meta">The only animated flair in the app</div></div></div>
+      <div class="list-row" style="min-height:48px"><div class="icon-bubble">💛</div>
+        <div class="main"><div class="name">Early Supporter tag</div><div class="meta">Shows next to your name forever</div></div></div>
+      <div class="list-row" style="min-height:48px"><div class="icon-bubble">🪙</div>
+        <div class="main"><div class="name">200 Bear Points</div><div class="meta">Straight to your balance</div></div></div>
+    </div>
+    ${DONATE_URL ? `
+      <a class="btn btn-primary btn-block" href="${esc(DONATE_URL)}" target="_blank" rel="noopener" style="margin-bottom:8px">Donate</a>
+      <p class="t-small t-secondary" style="text-align:center;margin-bottom:14px">After donating you'll get a Supporter code by email.</p>
+    ` : `
+      <p class="t-small t-secondary" style="text-align:center;margin-bottom:14px">Donations open soon. Already have a Supporter code? Redeem it below.</p>
+    `}
+    <form id="redeem-form">
+      <input class="input" id="redeem-code" placeholder="Supporter code" autocomplete="off"
+        style="text-transform:uppercase;text-align:center;font-weight:var(--fw-semibold)">
+      <button class="btn btn-secondary btn-block" style="margin-top:10px">Redeem code</button>
+    </form>
+  `, {
+    onOpen(sheet, close) {
+      sheet.querySelector("#redeem-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const code = sheet.querySelector("#redeem-code").value.trim();
+        if (!code) return;
+        try {
+          const res = await redeemCode(code);
+          if (res.error === "invalid_code") { toast("That code doesn't look right"); return; }
+          if (res.error === "code_used_up") { toast("That code has already been used"); return; }
+          if (res.error === "already_redeemed") { toast("You've already redeemed this one"); return; }
+          close();
+          toast("Thank you! +200 points, Aurora Crown, and your Supporter tag are yours");
+          await import("../cloud/client.js").then((m) => m.loadMyProfile());
+          refresh();
+        } catch (err) {
+          toast(friendlyCloudError(err, "Couldn't redeem that code"));
+        }
+      });
+    },
+  });
 }
 
 /* ---------- local settings (unchanged behavior) ---------- */

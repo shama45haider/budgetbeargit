@@ -134,48 +134,182 @@
 [data-theme="theme-royal"] .toast { color: #14120c; background: var(--green-500); }
 
 /* ============================================================
+   AMETHYST HAZE — dreamy purple with floating light orbs
+   ============================================================ */
+
+[data-theme="theme-amethyst"] {
+  --green-900: #3a2352;
+  --green-800: #6a44a3;
+  --green-700: #7b51b8;
+  --green-600: #8b5fc7;
+  --green-500: #9d75d4;
+  --green-400: #c3a6ea;
+  --green-100: #e9dcf8;
+  --green-50:  #f2eafb;
+
+  --off-white: #f7f3fc;
+  --border: #e6d9f2;
+  --border-strong: #d4bfe8;
+  --text: #2a2033;
+  --text-2: #776a85;
+  --text-3: #a598b3;
+
+  --bg: #f7f3fc;
+  --surface: #ffffff;
+  --tint: #f2eafb;
+
+  --shadow-1: 0 1px 2px rgba(58, 35, 82, 0.06);
+  --shadow-2: 0 2px 8px rgba(58, 35, 82, 0.08);
+  --shadow-3: 0 8px 28px rgba(58, 35, 82, 0.14);
+}
+
+[data-theme="theme-amethyst"] .hero-card {
+  background: linear-gradient(160deg, #6a44a3, #8b5fc7 90%);
+}
+
+/* ============================================================
+   MONEY RAIN — bank-vault green & gold, cash falling
+   ============================================================ */
+
+[data-theme="theme-moneyrain"] {
+  --green-900: #06120b;
+  --green-800: #2c8a4d;
+  --green-700: #359a58;
+  --green-600: #3fae62;
+  --green-500: #52c076;
+  --green-400: #7FC96A;
+  --green-100: #1c3626;
+  --green-50:  #14281c;
+
+  --off-white: #0c1410;
+  --border: #22382b;
+  --border-strong: #2f4a39;
+  --text: #e6f0e8;
+  --text-2: #9db5a4;
+  --text-3: #6a8272;
+
+  --bg: #0c1410;
+  --surface: #14211a;
+  --tint: #14281c;
+
+  --error-bg: #331d1c;
+  --warning-bg: #2e2416;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 8px 28px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="theme-moneyrain"] .hero-card {
+  background: linear-gradient(160deg, #123420, #1d5c35 90%);
+  box-shadow: 0 0 24px rgba(63, 174, 98, 0.25);
+}
+
+/* ============================================================
+   CRIMSON EMBER — smoldering dark red, embers rising
+   ============================================================ */
+
+[data-theme="theme-crimson"] {
+  --green-900: #1c0a0a;
+  --green-800: #b03a3a;
+  --green-700: #c44444;
+  --green-600: #d94f4f;
+  --green-500: #e26666;
+  --green-400: #f09a8a;
+  --green-100: #3d1d1d;
+  --green-50:  #2c1414;
+
+  --off-white: #160e0e;
+  --border: #3a2323;
+  --border-strong: #4d2f2f;
+  --text: #f2e6e4;
+  --text-2: #b39a96;
+  --text-3: #806663;
+
+  --bg: #160e0e;
+  --surface: #211414;
+  --tint: #2c1414;
+
+  --error: #ffb04f; /* negatives must stay distinguishable from the red accent */
+  --error-bg: #33240f;
+  --warning-bg: #2e2410;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 8px 28px rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="theme-crimson"] .hero-card {
+  background: linear-gradient(160deg, #7a2626, #b03a3a 90%);
+  box-shadow: 0 0 24px rgba(217, 79, 79, 0.25);
+}
+
+/* ============================================================
    Shared dark-theme component fixes (hardcoded light colors)
    ============================================================ */
 
 [data-theme="theme-midnight"] body,
-[data-theme="theme-royal"] body { background: var(--bg); }
+[data-theme="theme-royal"] body,
+[data-theme="theme-moneyrain"] body,
+[data-theme="theme-crimson"] body { background: var(--bg); }
 
 @media (min-width: 480px) {
   [data-theme="theme-midnight"] body { background: #0a0f0c; }
   [data-theme="theme-royal"] body { background: #0f0d08; }
+  [data-theme="theme-moneyrain"] body { background: #091009; }
+  [data-theme="theme-crimson"] body { background: #110a0a; }
+  [data-theme="theme-amethyst"] body { background: #efe7f8; }
   [data-theme="theme-sakura"] body { background: #f8e7ee; }
   [data-theme="theme-ocean"] body { background: #e8f1f7; }
 }
 
 [data-theme="theme-midnight"] .bottom-nav,
-[data-theme="theme-royal"] .bottom-nav {
+[data-theme="theme-royal"] .bottom-nav,
+[data-theme="theme-moneyrain"] .bottom-nav,
+[data-theme="theme-crimson"] .bottom-nav {
   background: color-mix(in srgb, var(--surface) 94%, transparent);
 }
 
 [data-theme="theme-midnight"] .segmented,
-[data-theme="theme-royal"] .segmented { background: var(--green-50); }
+[data-theme="theme-royal"] .segmented,
+[data-theme="theme-moneyrain"] .segmented,
+[data-theme="theme-crimson"] .segmented { background: var(--green-50); }
 
 [data-theme="theme-midnight"] .skeleton,
-[data-theme="theme-royal"] .skeleton {
+[data-theme="theme-royal"] .skeleton,
+[data-theme="theme-moneyrain"] .skeleton,
+[data-theme="theme-crimson"] .skeleton {
   background: linear-gradient(90deg, var(--surface) 25%, var(--tint) 50%, var(--surface) 75%);
   background-size: 200% 100%;
 }
 
 [data-theme="theme-midnight"] .callout.warn,
-[data-theme="theme-royal"] .callout.warn { border-color: #4a3d1e; }
+[data-theme="theme-royal"] .callout.warn,
+[data-theme="theme-moneyrain"] .callout.warn,
+[data-theme="theme-crimson"] .callout.warn { border-color: #4a3d1e; }
 [data-theme="theme-midnight"] .callout.danger,
-[data-theme="theme-royal"] .callout.danger { border-color: #4d2b28; }
+[data-theme="theme-royal"] .callout.danger,
+[data-theme="theme-moneyrain"] .callout.danger,
+[data-theme="theme-crimson"] .callout.danger { border-color: #4d2b28; }
 
 [data-theme="theme-midnight"] .coach-verdict.v-caution,
-[data-theme="theme-royal"] .coach-verdict.v-caution { background: var(--warning-bg); color: #d9a441; }
+[data-theme="theme-royal"] .coach-verdict.v-caution,
+[data-theme="theme-moneyrain"] .coach-verdict.v-caution,
+[data-theme="theme-crimson"] .coach-verdict.v-caution { background: var(--warning-bg); color: #d9a441; }
 [data-theme="theme-midnight"] .coach-verdict.v-no,
-[data-theme="theme-royal"] .coach-verdict.v-no { background: var(--error-bg); color: #e07b77; }
+[data-theme="theme-royal"] .coach-verdict.v-no,
+[data-theme="theme-moneyrain"] .coach-verdict.v-no,
+[data-theme="theme-crimson"] .coach-verdict.v-no { background: var(--error-bg); color: #e07b77; }
 
 [data-theme="theme-midnight"] .accent-dot,
-[data-theme="theme-royal"] .accent-dot { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35); }
+[data-theme="theme-royal"] .accent-dot,
+[data-theme="theme-moneyrain"] .accent-dot,
+[data-theme="theme-crimson"] .accent-dot { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35); }
 
 [data-theme="theme-midnight"] .user-tag,
-[data-theme="theme-royal"] .user-tag {
+[data-theme="theme-royal"] .user-tag,
+[data-theme="theme-moneyrain"] .user-tag,
+[data-theme="theme-crimson"] .user-tag {
   background: color-mix(in srgb, var(--tag, var(--green-600)) 22%, var(--surface));
   border-color: color-mix(in srgb, var(--tag, var(--green-600)) 45%, var(--surface));
   color: color-mix(in srgb, var(--tag, var(--green-600)) 70%, #ffffff);
@@ -302,6 +436,69 @@
 @keyframes dust-twinkle {
   0%, 100% { opacity: 0; transform: scale(0.5) translateY(0); }
   50% { opacity: 0.8; transform: scale(1.15) translateY(-14px); }
+}
+
+/* --- Amethyst: floating light orbs --- */
+
+[data-theme="theme-amethyst"] #theme-fx span {
+  width: var(--size, 14px);
+  height: var(--size, 14px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), rgba(155, 111, 208, 0.25) 60%, transparent 75%);
+  bottom: -24px;
+  left: var(--x, 50%);
+  animation: orb-float var(--dur, 16s) ease-in-out var(--delay, 0s) infinite;
+}
+@keyframes orb-float {
+  0%   { transform: translateY(0) translateX(0) scale(0.8); opacity: 0; }
+  12%  { opacity: 0.65; }
+  50%  { transform: translateY(-55vh) translateX(20px) scale(1); }
+  88%  { opacity: 0.4; }
+  100% { transform: translateY(-110vh) translateX(-14px) scale(1.05); opacity: 0; }
+}
+
+/* --- Money Rain: falling bills + gold glints --- */
+
+[data-theme="theme-moneyrain"] #theme-fx .fx-bill {
+  font-size: 15px;
+  top: -26px;
+  left: var(--x, 50%);
+  animation: bill-fall var(--dur, 11s) linear var(--delay, 0s) infinite;
+  opacity: 0.85;
+}
+@keyframes bill-fall {
+  0%   { transform: translateY(-5vh) translateX(0) rotate(-12deg); opacity: 0; }
+  8%   { opacity: 0.85; }
+  50%  { transform: translateY(52vh) translateX(-26px) rotate(160deg); }
+  92%  { opacity: 0.7; }
+  100% { transform: translateY(108vh) translateX(18px) rotate(340deg); opacity: 0; }
+}
+[data-theme="theme-moneyrain"] #theme-fx .fx-glint {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #e7cb62;
+  top: var(--y, 50%);
+  left: var(--x, 50%);
+  animation: dust-twinkle var(--dur, 4s) ease-in-out var(--delay, 0s) infinite;
+}
+
+/* --- Crimson: rising embers --- */
+
+[data-theme="theme-crimson"] #theme-fx span {
+  width: var(--size, 5px);
+  height: var(--size, 5px);
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffb04f 0%, #d94f4f 55%, transparent 80%);
+  bottom: -12px;
+  left: var(--x, 50%);
+  animation: ember-rise var(--dur, 9s) ease-out var(--delay, 0s) infinite;
+}
+@keyframes ember-rise {
+  0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+  10%  { opacity: 0.9; }
+  60%  { transform: translateY(-60vh) translateX(16px) scale(0.7); opacity: 0.5; }
+  100% { transform: translateY(-105vh) translateX(-12px) scale(0.4); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

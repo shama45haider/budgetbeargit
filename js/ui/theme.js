@@ -8,6 +8,9 @@ const THEME_COLOR = {
   "theme-sakura": "#fdf3f7",
   "theme-ocean": "#f2f8fb",
   "theme-royal": "#14120c",
+  "theme-amethyst": "#f7f3fc",
+  "theme-moneyrain": "#0c1410",
+  "theme-crimson": "#160e0e",
 };
 
 const CACHE_KEY = "bb.theme";
@@ -92,6 +95,30 @@ function mountFx(id) {
     for (let i = 0; i < 8; i++) addSpan("fx-dust", {
       "--x": rand(4, 94) + "%", "--y": rand(8, 90) + "%",
       "--dur": rand(3, 6) + "s", "--delay": -rand(0, 5) + "s",
+    });
+  } else if (id === "theme-amethyst") {
+    for (let i = 0; i < 6; i++) addSpan("", {
+      "--x": rand(4, 93) + "%", "--size": rand(8, 18) + "px",
+      "--dur": rand(13, 20) + "s", "--delay": -rand(0, 18) + "s",
+    });
+  } else if (id === "theme-moneyrain") {
+    for (let i = 0; i < 6; i++) {
+      const s = document.createElement("span");
+      s.className = "fx-bill";
+      s.textContent = "💵";
+      s.style.setProperty("--x", rand(2, 94) + "%");
+      s.style.setProperty("--dur", rand(9, 15) + "s");
+      s.style.setProperty("--delay", -rand(0, 13) + "s");
+      fx.appendChild(s);
+    }
+    for (let i = 0; i < 5; i++) addSpan("fx-glint", {
+      "--x": rand(4, 94) + "%", "--y": rand(8, 90) + "%",
+      "--dur": rand(3, 6) + "s", "--delay": -rand(0, 5) + "s",
+    });
+  } else if (id === "theme-crimson") {
+    for (let i = 0; i < 8; i++) addSpan("", {
+      "--x": rand(3, 95) + "%", "--size": rand(3, 7) + "px",
+      "--dur": rand(7, 12) + "s", "--delay": -rand(0, 10) + "s",
     });
   }
 

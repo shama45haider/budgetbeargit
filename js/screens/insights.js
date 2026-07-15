@@ -10,6 +10,7 @@ import { lastMonthKeys, spentInMonth, spentThisMonth } from "../engine/metrics.j
 import { ring, animateNumbers, openSheet } from "../ui/components.js";
 import { bars, lineChart, chartColors } from "../ui/chart.js";
 import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
+import { houseAdHTML, bindHouseAd } from "../ui/houseAd.js";
 
 const scenarioState = { raise: false, extra: false, purchase: false, payoff: false };
 
@@ -83,11 +84,14 @@ export function renderInsights(view) {
       </div>
       <div class="t-small" id="timeline-summary" style="margin-top:10px">${timelineSummary()}</div>
     </div>
+
+    ${houseAdHTML(0)}
   </div>`;
 
   animateNumbers(view);
   bindInfoDots(view);
   bindDemoBanner(view);
+  bindHouseAd(view);
   view.querySelector("#btn-review").addEventListener("click", openWeeklyReview);
   view.querySelectorAll("#scenario-chips .chip").forEach((c) =>
     c.addEventListener("click", () => {

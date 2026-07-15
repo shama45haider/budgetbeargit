@@ -80,7 +80,7 @@ export function hasCheckedInToday() {
 export function dailyCheckIn() {
   if (hasCheckedInToday()) return 0;
   const today = todayISO();
-  let earned = 10;
+  let earned = 25;
 
   update((s) => {
     const last = s.habits.lastCheckIn;
@@ -96,7 +96,7 @@ export function dailyCheckIn() {
     if (s.habits.checkIns.length > 400) s.habits.checkIns.shift();
 
     // streak bonus every 7 days
-    if (s.points.streak > 0 && s.points.streak % 7 === 0) earned += 25;
+    if (s.points.streak > 0 && s.points.streak % 7 === 0) earned += 75;
 
     s.points.balance += earned;
     s.points.history.unshift({ id: uid(), reason: "Daily check-in", amount: earned, date: today });
@@ -136,7 +136,7 @@ export function checkAchievements() {
 
 /** Award for goal contribution — called by goal screens. */
 export function awardContribution(amount) {
-  const pts = Math.min(50, Math.max(5, Math.round(amount / 10)));
+  const pts = Math.min(100, Math.max(10, Math.round(amount / 5)));
   award("Goal contribution", pts);
   toast(`+${pts} Bear Points`);
 }

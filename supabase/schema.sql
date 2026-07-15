@@ -396,7 +396,11 @@ insert into public.shop_items (id, price) values
   ('fx-shimmer', 300), ('fx-wave', 450), ('fx-gold', 500),
   ('fx-rainbow', 600), ('fx-sparkle', 700), ('fx-frost', 900),
   ('theme-midnight', 800), ('theme-sakura', 800),
-  ('theme-ocean', 800), ('theme-royal', 1500)
+  ('theme-ocean', 800), ('theme-royal', 1500),
+  ('theme-amethyst', 800), ('theme-moneyrain', 1200), ('theme-crimson', 800),
+  -- price 999999 = not for sale: won on the Daily Spin or granted to supporters
+  ('flair-lucky', 999999), ('tag-jackpot', 999999),
+  ('flair-crown', 999999), ('tag-supporter', 999999)
 on conflict (id) do update set price = excluded.price;
 
 create table if not exists public.user_items (
@@ -454,6 +458,7 @@ begin
 
   select price into v_price from shop_items where id = p_item_id;
   if not found then return json_build_object('error', 'no_such_item'); end if;
+  if v_price >= 999999 then return json_build_object('error', 'not_for_sale'); end if;
 
   if exists (select 1 from user_items where user_id = auth.uid() and item_id = p_item_id) then
     return json_build_object('error', 'already_owned');
@@ -498,6 +503,116 @@ grant select on public.user_items to authenticated;
 grant execute on function public.earn_points(int, text) to authenticated;
 grant execute on function public.buy_item(text) to authenticated;
 grant execute on function public.equip_item(text, text) to authenticated;
+
+-- ============================================================
+-- V4: DAILY SPIN + SUPPORTER CODES + PLANS
+-- ============================================================
+
+alter table public.profiles add column if not exists last_spin_at timestamptz;
+alter table public.profiles add column if not exists plan text not null default 'free';
+
+-- One spin per UTC day; the server picks the prize so it can't be gamed.
+create or replace function public.daily_spin()
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_last timestamptz;
+  v_roll numeric;
+  v_prize text;
+  v_points int := 0;
+  v_balance int;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  select last_spin_at into v_last from profiles where id = auth.uid() for update;
+  if v_last is not null
+     and (v_last at time zone 'utc')::date = (now() at time zone 'utc')::date then
+    return json_build_object('error', 'already_spun');
+  end if;
+
+  v_roll := random();
+  if    v_roll < 0.30  then v_prize := 'points'; v_points := 25;
+  elsif v_roll < 0.55  then v_prize := 'points'; v_points := 50;
+  elsif v_roll < 0.72  then v_prize := 'points'; v_points := 75;
+  elsif v_roll < 0.84  then v_prize := 'points'; v_points := 100;
+  elsif v_roll < 0.92  then v_prize := 'points'; v_points := 150;
+  elsif v_roll < 0.96  then v_prize := 'points'; v_points := 300;
+  elsif v_roll < 0.985 then v_prize := 'flair-lucky';
+  else                      v_prize := 'tag-jackpot';
+  end if;
+
+  if v_prize <> 'points' then
+    if exists (select 1 from user_items where user_id = auth.uid() and item_id = v_prize) then
+      v_prize := 'points'; v_points := 100; -- already won it — consolation points
+    else
+      insert into user_items (user_id, item_id) values (auth.uid(), v_prize);
+    end if;
+  end if;
+
+  update profiles
+     set last_spin_at = now(),
+         points = points + v_points,
+         lifetime_points = lifetime_points + v_points
+   where id = auth.uid()
+   returning points into v_balance;
+
+  return json_build_object('prize', v_prize, 'points', v_points, 'balance', v_balance);
+end $$;
+
+-- Supporter codes: the owner mints them, donors redeem for the thank-you bundle.
+-- Mint one:  insert into redeem_codes (code, max_uses) values ('BEAR-THANKYOU-1', 1);
+create table if not exists public.redeem_codes (
+  code text primary key,
+  bundle text not null default 'supporter',
+  max_uses int not null default 1,
+  used_count int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.code_redemptions (
+  code text not null references public.redeem_codes (code) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  redeemed_at timestamptz not null default now(),
+  primary key (code, user_id)
+);
+
+-- Locked tables: no policies on purpose — only the definer RPC touches them.
+alter table public.redeem_codes enable row level security;
+alter table public.code_redemptions enable row level security;
+
+create or replace function public.redeem_code(p_code text)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_row redeem_codes%rowtype;
+  v_balance int;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  select * into v_row from redeem_codes where code = upper(trim(p_code)) for update;
+  if not found then return json_build_object('error', 'invalid_code'); end if;
+  if v_row.used_count >= v_row.max_uses then return json_build_object('error', 'code_used_up'); end if;
+  if exists (select 1 from code_redemptions where code = v_row.code and user_id = auth.uid()) then
+    return json_build_object('error', 'already_redeemed');
+  end if;
+
+  insert into code_redemptions (code, user_id) values (v_row.code, auth.uid());
+  update redeem_codes set used_count = used_count + 1 where code = v_row.code;
+
+  -- Supporter thank-you bundle: Aurora Crown flair + Early Supporter tag + 200 points
+  insert into user_items (user_id, item_id)
+    values (auth.uid(), 'flair-crown'), (auth.uid(), 'tag-supporter')
+    on conflict do nothing;
+
+  update profiles
+     set points = points + 200,
+         lifetime_points = lifetime_points + 200
+   where id = auth.uid()
+   returning points into v_balance;
+
+  return json_build_object('ok', true, 'points', 200, 'balance', v_balance);
+end $$;
+
+grant execute on function public.daily_spin() to authenticated;
+grant execute on function public.redeem_code(text) to authenticated;
 
 -- ============================================================
 -- Force PostgREST to reload its schema cache immediately, so new

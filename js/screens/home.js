@@ -11,6 +11,8 @@ import { dailyCheckIn, hasCheckedInToday, checkAchievements } from "../engine/po
 import { navigate, refresh } from "../router.js";
 import { myProfile, currentUser } from "../cloud/client.js";
 import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
+import { openSpinWheel, spunToday } from "../ui/spinWheel.js";
+import { authNext } from "./auth.js";
 
 export function renderHome(view) {
   const s = get();
@@ -55,6 +57,29 @@ export function renderHome(view) {
       <button class="btn btn-primary btn-block" style="margin-top:12px" id="btn-checkin">
         Start today's review · under a minute
       </button>`}
+
+    ${currentUser() && !spunToday() ? `
+      <button class="card tappable spin-cta" id="btn-spin" style="width:100%;text-align:left">
+        <div class="row">
+          <div class="icon-bubble" style="width:44px;height:44px;border-radius:14px;font-size:20px">🎡</div>
+          <div class="grow">
+            <h3 style="font-size:var(--fs-15)">Your daily spin is ready</h3>
+            <div class="t-small t-secondary">Win Bear Points — or a prize money can't buy</div>
+          </div>
+          <span class="chev">›</span>
+        </div>
+      </button>` : ""}
+    ${!currentUser() && s.profile.demo ? `
+      <button class="card tappable spin-cta" id="btn-spin-locked" style="width:100%;text-align:left">
+        <div class="row">
+          <div class="icon-bubble" style="width:44px;height:44px;border-radius:14px;font-size:20px">🎡</div>
+          <div class="grow">
+            <h3 style="font-size:var(--fs-15)">Daily spin</h3>
+            <div class="t-small t-secondary">Create a free account to spin for prizes every day</div>
+          </div>
+          <span class="chev">›</span>
+        </div>
+      </button>` : ""}
 
     <h2 class="section-title">Today's plan</h2>
     <div class="card" style="padding:0">
@@ -103,6 +128,11 @@ export function renderHome(view) {
   bindDemoBanner(view);
 
   view.querySelector("#btn-checkin")?.addEventListener("click", () => openCheckIn(da, bills, goal));
+  view.querySelector("#btn-spin")?.addEventListener("click", openSpinWheel);
+  view.querySelector("#btn-spin-locked")?.addEventListener("click", () => {
+    authNext("/home");
+    navigate("/auth");
+  });
 }
 
 function byPriority(a, b) {

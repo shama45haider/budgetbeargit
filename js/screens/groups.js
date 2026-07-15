@@ -10,6 +10,7 @@ import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
 import { navigate, refresh } from "../router.js";
 import { authNext } from "./auth.js";
 import { demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
+import { houseAdHTML, bindHouseAd } from "../ui/houseAd.js";
 
 export function renderGroups(view) {
   if (!currentUser()) {
@@ -30,10 +31,12 @@ export function renderGroups(view) {
       <button class="btn btn-primary btn-block" id="btn-create-group">Create a Group Link</button>
       <button class="btn btn-secondary btn-block" id="btn-join-code">Join with a code</button>
     </div>
+    ${houseAdHTML(1)}
   </div>`;
 
   view.querySelector("#btn-create-group").addEventListener("click", openCreateGroup);
   view.querySelector("#btn-join-code").addEventListener("click", openJoinByCode);
+  bindHouseAd(view);
 
   loadGroups(view);
 }

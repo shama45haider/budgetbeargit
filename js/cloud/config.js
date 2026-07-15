@@ -19,6 +19,13 @@ export const GOOGLE_AUTH_ENABLED = false;
 export const TURNSTILE_ENABLED = false;
 export const TURNSTILE_SITE_KEY = "";
 
+/* Donation link (PayPal.me, Buy Me a Coffee, Stripe Payment Link, …).
+   The "Support Budget Bear" feature stays hidden while this is empty.
+   Donors get a Supporter code by email — mint codes with the SQL one-liner
+   in SETUP-SUPABASE.md — and redeem them in the app for the thank-you
+   bundle (Aurora Crown flair + Early Supporter tag + 200 points). */
+export const DONATE_URL = "";
+
 export function cloudConfigured() {
   return SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
 }

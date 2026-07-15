@@ -80,6 +80,21 @@ export const TURNSTILE_SITE_KEY = "0x4AAAAAAA...";  // the Site Key, not the sec
 
 The secret key stays in Supabase's dashboard only — never put it in client code.
 
+## 7. Supporter codes (donations)
+
+When someone donates (set `DONATE_URL` in `js/cloud/config.js` to your PayPal.me /
+Buy Me a Coffee / Stripe link), send them a Supporter code by email. Mint one in
+the SQL Editor:
+
+```sql
+insert into redeem_codes (code, max_uses) values ('BEAR-THANKS-001', 1);
+```
+
+Codes are case-insensitive for the person redeeming. `max_uses` above 1 makes a
+shared code (e.g. for a giveaway). Redeeming grants the Aurora Crown flair, the
+Early Supporter tag, and 200 Bear Points — each account can redeem a given code
+once, enforced server-side.
+
 ## Done
 
 Commit the config change and push — the deployed app picks it up on the next

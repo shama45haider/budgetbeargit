@@ -395,3 +395,121 @@
     animation: none !important;
   }
 }
+
+/* ------- Daily Spin wheel ------- */
+
+.spin-overlay .achievement-card { width: 100%; }
+
+.spin-stage {
+  position: relative;
+  width: 250px;
+  height: 250px;
+  margin: 18px auto 0;
+}
+.spin-pointer {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 20px solid var(--text);
+  z-index: 3;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+}
+.spin-wheel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 6px solid var(--surface);
+  box-shadow: 0 0 0 2px var(--border), var(--shadow-3);
+  will-change: transform;
+  overflow: hidden;
+}
+.spin-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: -16px;
+  margin-top: -105px;
+  width: 32px;
+  text-align: center;
+  transform-origin: 16px 105px;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-14);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.spin-hub {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 3px solid var(--border);
+  display: grid;
+  place-items: center;
+  z-index: 2;
+}
+
+/* Home entry card */
+.spin-cta {
+  margin-top: 12px;
+  background: linear-gradient(120deg, var(--tint), var(--surface) 70%);
+  border-color: var(--green-100);
+}
+.spin-cta .icon-bubble {
+  animation: spin-tease 5s var(--ease-inout) infinite;
+}
+@keyframes spin-tease {
+  0%, 84%, 100% { transform: rotate(0); }
+  88% { transform: rotate(-14deg); }
+  92% { transform: rotate(12deg); }
+  96% { transform: rotate(-6deg); }
+}
+
+/* Animated flair keyframes (Lucky Clover, Aurora Crown) */
+@keyframes flair-flow {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin-cta .icon-bubble { animation: none; }
+}
+
+/* ------- Plans ------- */
+
+.plan-card h2 { font-size: var(--fs-17); }
+.plan-featured { border-color: var(--green-500); box-shadow: 0 0 0 1px var(--green-500), var(--shadow-2); }
+.plan-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--fs-14);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.plan-list li::marker { color: var(--green-400); }
+
+/* ------- House ad ------- */
+
+.house-ad { margin-top: 14px; padding: 12px 14px; }
+.house-ad-label {
+  font-size: var(--fs-11);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.house-ad-x {
+  min-height: auto;
+  padding: 2px 8px;
+  color: var(--text-3);
+  font-size: var(--fs-13);
+  flex-shrink: 0;
+}
