@@ -615,6 +615,41 @@ grant execute on function public.daily_spin() to authenticated;
 grant execute on function public.redeem_code(text) to authenticated;
 
 -- ============================================================
+-- V5: AI COACH USAGE LIMIT
+-- The AI Coach edge function calls this before asking Groq, so the daily
+-- cap is enforced server-side (a client can't just skip the check).
+-- ============================================================
+
+alter table public.profiles add column if not exists ai_msg_count int not null default 0;
+alter table public.profiles add column if not exists ai_msg_date date;
+
+create or replace function public.use_ai_message(p_daily_limit int default 20)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_today date := (now() at time zone 'utc')::date;
+  v_count int;
+  v_date date;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  select ai_msg_count, ai_msg_date into v_count, v_date from profiles where id = auth.uid() for update;
+
+  if v_date is distinct from v_today then
+    v_count := 0;
+  end if;
+
+  if v_count >= p_daily_limit then
+    return json_build_object('error', 'quota_exceeded', 'limit', p_daily_limit);
+  end if;
+
+  update profiles set ai_msg_count = v_count + 1, ai_msg_date = v_today where id = auth.uid();
+
+  return json_build_object('ok', true, 'remaining', p_daily_limit - (v_count + 1));
+end $$;
+
+grant execute on function public.use_ai_message(int) to authenticated;
+
+-- ============================================================
 -- Force PostgREST to reload its schema cache immediately, so new
 -- foreign keys (and other relationship changes) are visible to the API
 -- right away rather than waiting for its own periodic refresh.

@@ -1,8 +1,13 @@
-/* Budget Bear — AI Coach chat screen. */
+/* Budget Bear — AI Coach chat screen.
+   Tries the real AI (Groq, via Supabase Edge Function) first when signed in;
+   silently falls back to the instant local engine on any failure — offline,
+   quota hit, or a server hiccup. The user never sees a broken state. */
 
 import { esc } from "../format.js";
-import { ask, starterChips } from "../engine/coach.js";
+import { ask, starterChips, buildContext } from "../engine/coach.js";
 import { get } from "../store.js";
+import { currentUser } from "../cloud/client.js";
+import { askAI, aiConfigured } from "../cloud/ai.js";
 
 let history = []; // { role: "user"|"coach", html }
 
@@ -27,9 +32,10 @@ export function renderCoach(view) {
 
   if (!history.length) {
     const name = get().profile.name;
+    const smart = currentUser() && aiConfigured();
     history.push({
       role: "coach",
-      html: `<p>${name ? `Hi ${esc(name)}. ` : ""}I'm your financial coach. I read your actual budget, goals, and bills — so my answers come with reasoning, not guesses.</p>`,
+      html: `<p>${name ? `Hi ${esc(name)}. ` : ""}I'm your financial coach. I read your actual budget, goals, and bills${smart ? " and think it through for real" : ""} — so my answers come with reasoning, not guesses.</p>`,
       chips: starterChips,
     });
   }
@@ -60,11 +66,10 @@ function paint(chat, view) {
   chat.scrollTop = chat.scrollHeight;
 }
 
-function handle(text, chat, view) {
+async function handle(text, chat, view) {
   history.push({ role: "user", html: esc(text) });
   paint(chat, view);
 
-  // typing indicator
   const typing = document.createElement("div");
   typing.className = "ob-bubble bear";
   typing.innerHTML = `<img class="ob-avatar" src="assets/bears/thinkbear.png" alt="">
@@ -72,10 +77,23 @@ function handle(text, chat, view) {
   chat.appendChild(typing);
   chat.scrollTop = chat.scrollHeight;
 
-  setTimeout(() => {
-    const res = ask(text);
-    history.push({ role: "coach", html: res.html, chips: res.chips });
-    if (history.length > 60) history = history.slice(-60);
-    paint(chat, view);
-  }, 500 + Math.random() * 350);
+  let result = null;
+
+  if (currentUser() && aiConfigured()) {
+    try {
+      const { reply } = await askAI(text, buildContext());
+      result = { html: `<p>${esc(reply).replace(/\n/g, "<br>")}</p>`, chips: starterChips };
+    } catch {
+      result = null; // any failure (offline, quota, server) — fall through silently
+    }
+  }
+
+  if (!result) {
+    await new Promise((r) => setTimeout(r, 350 + Math.random() * 300)); // keep the natural chat pacing
+    result = ask(text);
+  }
+
+  history.push({ role: "coach", html: result.html, chips: result.chips });
+  if (history.length > 60) history = history.slice(-60);
+  paint(chat, view);
 }

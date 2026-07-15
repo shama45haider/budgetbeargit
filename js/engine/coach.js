@@ -15,6 +15,42 @@ import { insights } from "./insights.js";
 
 /* ---------- Public API ---------- */
 
+/** Plain-text summary of the user's real numbers, sent as context to the real AI.
+    No secrets here — same data the deterministic answers below already use. */
+export function buildContext() {
+  const s = get();
+  const da = dailyAllowance();
+  const flex = flexibleRemaining();
+  const { income, free } = cashFlow();
+  const bills = upcomingBills(14);
+  const health = healthScore();
+  const goals = s.goals.filter((g) => !g.completedAt);
+  const debt = totalDebt();
+  const cushion = s.settings.savingsBuffer || 0;
+
+  const lines = [
+    `Name: ${s.profile.name || "the user"}`,
+    `Monthly income: ${money(income)}`,
+    `Left to spend today (fun money): ${money(da.leftToday)}`,
+    `Fun money left this month: ${money(Math.max(0, flex.remaining))}`,
+    `Money left over each month after the plan: ${money(free)}`,
+    `Savings cushion on hand: ${money(cushion)}`,
+    `Total debt: ${money(debt)}`,
+    `Bills due in the next 14 days: ${money(bills.reduce((a, b) => a + b.amount, 0))}`,
+    `Money health score: ${health.score}/100 (${health.grade})`,
+  ];
+  if (goals.length) {
+    lines.push("Active goals:");
+    for (const g of goals.slice(0, 5)) {
+      const st = goalStats(g);
+      lines.push(`  - ${g.name}: ${money(g.saved)} of ${money(g.target)} (${Math.round(st.completion * 100)}%), ${st.nextAction}`);
+    }
+  } else {
+    lines.push("Active goals: none yet");
+  }
+  return lines.join("\n");
+}
+
 /** Returns { html, chips? } — a rendered answer plus follow-up suggestions. */
 export function ask(rawText) {
   const text = rawText.trim().toLowerCase();

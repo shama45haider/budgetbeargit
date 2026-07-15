@@ -95,6 +95,31 @@ shared code (e.g. for a giveaway). Redeeming grants the Aurora Crown flair, the
 Early Supporter tag, and 200 Bear Points — each account can redeem a given code
 once, enforced server-side.
 
+## 8. Real AI Coach (free, via Groq)
+
+The Coach tab uses a fast deterministic engine by default (instant, free, works
+offline). Adding this step upgrades it to a real LLM (Groq's free tier, Llama
+3.3 70B) — it still falls back to the instant engine automatically if the AI
+is unavailable, over quota, or the user is offline, so nothing ever breaks.
+
+1. **Get a free Groq API key**: [console.groq.com](https://console.groq.com) →
+   sign up (no credit card) → **API Keys** → **Create API Key**. Copy it.
+2. **Deploy the edge function** — no CLI needed:
+   - Supabase Dashboard → **Edge Functions** → **Deploy a new function**.
+   - Name it exactly `ai-coach`.
+   - Open [`supabase/functions/ai-coach/index.ts`](supabase/functions/ai-coach/index.ts)
+     from this repo, copy all of it, paste into the function editor, **Deploy**.
+3. **Add the Groq key as a secret**: Dashboard → **Edge Functions** → **Manage
+   secrets** (or **Project Settings → Edge Functions**) → add
+   `GROQ_API_KEY` = the key from step 1. Save.
+4. That's it — no client config needed, the app calls
+   `${SUPABASE_URL}/functions/v1/ai-coach` automatically once you're signed in.
+
+Each account gets **20 AI messages per day** (resets at UTC midnight),
+enforced server-side via the `use_ai_message` RPC in `schema.sql` — this
+keeps everyone within Groq's shared free-tier rate limit. Messages beyond
+that (or any failure) transparently use the local engine instead.
+
 ## Done
 
 Commit the config change and push — the deployed app picks it up on the next

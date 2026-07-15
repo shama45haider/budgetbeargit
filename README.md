@@ -13,7 +13,7 @@ that reasons from your real numbers.
 - **Home** — answers "what should I do today": money left today, upcoming bills, goal progress, health score, one coach recommendation.
 - **Goals** — templates, completion %, required saving, ETA, risk level, and next action, all computed live.
 - **Budget** — category budgets with pace bars, two-tap expense entry, recurring bill manager.
-- **AI Coach** — a deterministic financial-analysis engine that answers "Can I afford $400?", "I want to buy a house", debt payoff (avalanche vs snowball), subscription audits, and more — always with its reasoning shown.
+- **AI Coach** — a deterministic financial-analysis engine that answers "Can I afford $400?", "I want to buy a house", debt payoff (avalanche vs snowball), subscription audits, and more — always with its reasoning shown. Optionally upgraded to a real LLM (Groq, free tier) via a Supabase Edge Function — see SETUP-SUPABASE.md — with automatic fallback to the instant local engine.
 - **Insights** — plain-English observations, six-factor financial health score, and a 12-month timeline with what-if scenarios (raise, big purchase, extra savings, debt attack).
 - **Bear Points & achievements** — daily check-in streaks and mascot-animated achievement unlocks.
 - **PWA** — installable, offline-first, personal budget data stays in the browser (`localStorage`).

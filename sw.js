@@ -1,6 +1,6 @@
 /* Budget Bear — service worker: offline-first app shell. */
 
-const CACHE = "budgetbear-v7";
+const CACHE = "budgetbear-v8";
 
 const SHELL = [
   "./",
@@ -28,6 +28,7 @@ const SHELL = [
   "js/ui/theme.js",
   "js/ui/spinWheel.js",
   "js/ui/houseAd.js",
+  "js/cloud/ai.js",
   "js/screens/plans.js",
   "js/screens/shop.js",
   "js/screens/auth.js",
