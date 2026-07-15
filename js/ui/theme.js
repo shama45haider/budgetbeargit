@@ -57,11 +57,17 @@ export function previewTheme(id) {
   return () => applyTheme(prev, { cache: false });
 }
 
+/** In-app "Reduce motion" setting: kills CSS animations (see base.css) and theme FX. */
+export function applyReduceMotion(on) {
+  document.documentElement.toggleAttribute("data-reduce-motion", on);
+  mountFx(current); // re-evaluate the ambient layer under the new setting
+}
+
 /* ---------- ambient effect layer ---------- */
 
 function mountFx(id) {
   document.getElementById("theme-fx")?.remove();
-  if (!id || reduceMotion) return;
+  if (!id || reduceMotion || document.documentElement.hasAttribute("data-reduce-motion")) return;
 
   const fx = document.createElement("div");
   fx.id = "theme-fx";

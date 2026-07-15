@@ -17,7 +17,7 @@ import { renderShop } from "./screens/shop.js";
 import { renderPlans } from "./screens/plans.js";
 import { initCloud, onAuthChange, currentUser, myProfile } from "./cloud/client.js";
 import { showLoader, hideLoader } from "./ui/loader.js";
-import { applyCachedTheme, applyTheme } from "./ui/theme.js";
+import { applyCachedTheme, applyTheme, applyReduceMotion } from "./ui/theme.js";
 
 const icons = {
   home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-5.5a2 2 0 0 1 4 0V21h3.5a1 1 0 0 0 1-1V9.5"/></svg>`,
@@ -88,6 +88,7 @@ function syncNavVisibility() {
 
 async function boot() {
   applyCachedTheme(); // paint the purchased theme instantly, before session restore
+  if (get().settings.reduceMotion) applyReduceMotion(true);
   buildNav();
   showLoader("Waking the bear…");
   try {

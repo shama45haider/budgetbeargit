@@ -7,13 +7,14 @@ import { ACHIEVEMENTS } from "../data/achievements.js";
 import { openSheet, toast, confirmSheet, animateNumbers } from "../ui/components.js";
 import { showAchievement } from "../ui/achievement.js";
 import { navigate, refresh } from "../router.js";
-import { currentUser, myProfile, updateProfile, uploadAvatar, signOut } from "../cloud/client.js";
+import { currentUser, myProfile, updateProfile, uploadAvatar, signOut, updatePassword, updateEmail, deleteAccount } from "../cloud/client.js";
 import { cloudConfigured, DONATE_URL } from "../cloud/config.js";
 import { redeemCode, friendlyCloudError } from "../cloud/api.js";
 import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
 import { authNext } from "./auth.js";
 import { flairStyle, effectClass, tagHTML, levelFor } from "../data/shop.js";
 import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
+import { applyReduceMotion } from "../ui/theme.js";
 
 export function renderProfile(view) {
   const s = get();
@@ -78,6 +79,14 @@ export function renderProfile(view) {
       ${settingRow("What I owe", s.debts.length ? s.debts.length + " tracked · " + money(s.debts.reduce((a, d) => a + d.balance, 0)) : "Nothing tracked", "debts")}
     </div>
 
+    <h2 class="section-title">Preferences</h2>
+    <div class="list">
+      <div class="list-row" style="min-height:52px">
+        <div class="main"><div class="name">Reduce motion</div><div class="meta">Fewer animations across the app</div></div>
+        <label class="switch"><input type="checkbox" id="pref-motion" ${s.settings.reduceMotion ? "checked" : ""}><span></span></label>
+      </div>
+    </div>
+
     <h2 class="section-title">Data</h2>
     <div class="list">
       <button class="list-row" id="btn-export"><div class="main"><div class="name">Export data</div><div class="meta">Download a JSON backup</div></div><span class="chev">›</span></button>
@@ -85,10 +94,18 @@ export function renderProfile(view) {
       <button class="list-row" id="btn-reset"><div class="main"><div class="name" style="color:var(--error)">Start over</div><div class="meta">Erase local data on this device</div></div></button>
     </div>
 
+    ${user ? `
+    <h2 class="section-title">Account</h2>
+    <div class="list">
+      <button class="list-row" id="btn-email"><div class="main"><div class="name">Change email</div><div class="meta">${esc(user.email || "")}</div></div><span class="chev">›</span></button>
+      <button class="list-row" id="btn-password"><div class="main"><div class="name">Change password</div><div class="meta">Pick a new sign-in password</div></div><span class="chev">›</span></button>
+      <button class="list-row" id="btn-delete-account"><div class="main"><div class="name" style="color:var(--error)">Delete account</div><div class="meta">Permanently erase your account, profile, and groups</div></div></button>
+    </div>` : ""}
+
     <h2 class="section-title">About</h2>
     <div class="list">
       <button class="list-row" id="btn-plans"><div class="main"><div class="name">Budget Bear Plans</div><div class="meta">Free, Premium, and Business</div></div><span class="chev">›</span></button>
-      ${user && (DONATE_URL || true) ? `<button class="list-row" id="btn-support"><div class="main"><div class="name">♥ Support Budget Bear</div><div class="meta">Help keep the bear fed — get an exclusive thank-you</div></div><span class="chev">›</span></button>` : ""}
+      ${user ? `<button class="list-row" id="btn-support"><div class="main"><div class="name">♥ Support Budget Bear</div><div class="meta">Help keep the bear fed — get an exclusive thank-you</div></div><span class="chev">›</span></button>` : ""}
       <a class="list-row" href="https://budgetbear.xyz" target="_blank" rel="noopener"><div class="main"><div class="name">budgetbear.xyz</div><div class="meta">Website</div></div><span class="chev">›</span></a>
       <a class="list-row" href="mailto:help@budgetbear.xyz"><div class="main"><div class="name">help@budgetbear.xyz</div><div class="meta">Support</div></div><span class="chev">›</span></a>
     </div>
@@ -129,6 +146,15 @@ export function renderProfile(view) {
 
   view.querySelectorAll("[data-setting]").forEach((b) =>
     b.addEventListener("click", () => openSetting(b.dataset.setting)));
+
+  view.querySelector("#pref-motion").addEventListener("change", (e) => {
+    const on = e.target.checked;
+    update((st) => { st.settings.reduceMotion = on; });
+    applyReduceMotion(on);
+  });
+  view.querySelector("#btn-email")?.addEventListener("click", openChangeEmail);
+  view.querySelector("#btn-password")?.addEventListener("click", openChangePassword);
+  view.querySelector("#btn-delete-account")?.addEventListener("click", openDeleteAccount);
 
   view.querySelector("#btn-plans").addEventListener("click", () => navigate("/plans"));
   view.querySelector("#btn-support")?.addEventListener("click", openSupportSheet);
@@ -205,27 +231,33 @@ function openEditProfile(view) {
     banner_color: p.banner_color,
     accent_color: p.accent_color,
     avatar_url: p.avatar_url,
+    // Avatar changes are part of the draft: nothing is uploaded or removed
+    // until Save, so closing the sheet discards them like any other field.
+    avatarFile: null,
+    avatarRemoved: false,
   };
+  let previewUrl = null; // object URL for a freshly-picked file
 
   openSheet(`
     <h2 class="sheet-title">Edit profile</h2>
+    <p class="t-small t-secondary" style="margin-bottom:12px">This is how you appear in groups. Tap the picture to change it.</p>
     <div id="ep-preview">${identityPreview(draft)}</div>
-    <form id="ep-form" class="stack" style="margin-top:14px">
-      <label class="btn btn-secondary btn-block" style="cursor:pointer">
-        Change avatar
-        <input type="file" id="ep-avatar" accept="image/png,image/jpeg,image/webp" class="visually-hidden">
-      </label>
+    <input type="file" id="ep-avatar" accept="image/png,image/jpeg,image/webp" class="visually-hidden">
+    <div class="row" style="justify-content:center;margin-top:8px">
+      <button type="button" class="btn-ghost t-small" id="ep-avatar-remove" ${draft.avatar_url ? "" : "hidden"}>Remove photo</button>
+    </div>
+    <form id="ep-form" class="stack" style="margin-top:10px">
       <div class="field"><label class="field-label" for="ep-name">Display name</label>
         <input class="input" id="ep-name" value="${esc(draft.display_name)}" maxlength="32" required></div>
       <div class="field"><label class="field-label" for="ep-pronouns">Pronouns (optional)</label>
         <input class="input" id="ep-pronouns" value="${esc(draft.pronouns)}" maxlength="24" placeholder="they/them"></div>
       <div class="row">
         <div class="field" style="width:86px"><label class="field-label" for="ep-emoji">Emoji</label>
-          <input class="input" id="ep-emoji" value="${esc(draft.status_emoji)}" maxlength="4" placeholder="🌴" style="text-align:center"></div>
-        <div class="field grow"><label class="field-label" for="ep-status">Status</label>
+          <input class="input" id="ep-emoji" value="${esc(draft.status_emoji)}" maxlength="8" placeholder="🌴" style="text-align:center"></div>
+        <div class="field grow"><label class="field-label" for="ep-status">Status <span class="char-count" id="ep-status-count"></span></label>
           <input class="input" id="ep-status" value="${esc(draft.status_text)}" maxlength="60" placeholder="Saving for Florida"></div>
       </div>
-      <div class="field"><label class="field-label" for="ep-about">About me</label>
+      <div class="field"><label class="field-label" for="ep-about">About me <span class="char-count" id="ep-about-count"></span></label>
         <textarea class="input" id="ep-about" rows="2" maxlength="200" placeholder="A line about you">${esc(draft.about)}</textarea></div>
       <div class="field"><label class="field-label">Banner color</label>
         ${accentPickerHTML(draft.banner_color, { name: "banner" })}</div>
@@ -235,9 +267,28 @@ function openEditProfile(view) {
     </form>
   `, {
     onOpen(sheet, close) {
-      const repaint = () => { sheet.querySelector("#ep-preview").innerHTML = identityPreview(draft); };
+      const fileInput = sheet.querySelector("#ep-avatar");
+      const removeBtn = sheet.querySelector("#ep-avatar-remove");
+
+      const repaint = () => {
+        sheet.querySelector("#ep-preview").innerHTML = identityPreview(draft);
+        removeBtn.hidden = !draft.avatar_url;
+        bindAvatarTap();
+      };
+      const bindAvatarTap = () => {
+        sheet.querySelector("#ep-avatar-btn")?.addEventListener("click", () => fileInput.click());
+      };
+      bindAvatarTap();
+
+      const counters = () => {
+        sheet.querySelector("#ep-status-count").textContent = `${draft.status_text.length}/60`;
+        sheet.querySelector("#ep-about-count").textContent = `${draft.about.length}/200`;
+      };
+      counters();
+
       const bind = (id, key) => sheet.querySelector(id).addEventListener("input", (e) => {
         draft[key] = e.target.value;
+        counters();
         repaint();
       });
       bind("#ep-name", "display_name");
@@ -248,18 +299,25 @@ function openEditProfile(view) {
       bindAccentPicker(sheet, "banner", (hex) => { draft.banner_color = hex; repaint(); });
       bindAccentPicker(sheet, "accent", (hex) => { draft.accent_color = hex; repaint(); });
 
-      sheet.querySelector("#ep-avatar").addEventListener("change", async (e) => {
-        const file = e.target.files[0];
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files[0];
         if (!file) return;
-        if (file.size > 2 * 1024 * 1024) { toast("Image must be under 2MB"); return; }
-        toast("Uploading…");
-        try {
-          draft.avatar_url = await uploadAvatar(file);
-          repaint();
-          toast("Avatar updated");
-        } catch (err) {
-          toast(err.message || "Upload failed");
-        }
+        if (file.size > 2 * 1024 * 1024) { toast("Image must be under 2MB"); fileInput.value = ""; return; }
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = URL.createObjectURL(file);
+        draft.avatarFile = file;
+        draft.avatarRemoved = false;
+        draft.avatar_url = previewUrl;
+        repaint();
+      });
+
+      removeBtn.addEventListener("click", () => {
+        if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+        draft.avatarFile = null;
+        draft.avatarRemoved = true;
+        draft.avatar_url = null;
+        fileInput.value = "";
+        repaint();
       });
 
       sheet.querySelector("#ep-form").addEventListener("submit", async (e) => {
@@ -268,6 +326,7 @@ function openEditProfile(view) {
         btn.disabled = true;
         btn.textContent = "Saving…";
         try {
+          if (draft.avatarFile) await uploadAvatar(draft.avatarFile); // persists avatar_url itself
           await updateProfile({
             display_name: draft.display_name.trim() || "New Bear",
             pronouns: draft.pronouns.trim(),
@@ -276,12 +335,14 @@ function openEditProfile(view) {
             status_text: draft.status_text.trim(),
             banner_color: draft.banner_color,
             accent_color: draft.accent_color,
+            ...(draft.avatarRemoved ? { avatar_url: null } : {}),
           });
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
           close();
           toast("Profile saved");
           refresh();
         } catch (err) {
-          toast(err.message || "Couldn't save");
+          toast(friendlyCloudError(err, "Couldn't save your profile"));
           btn.disabled = false;
           btn.textContent = "Save profile";
         }
@@ -295,7 +356,12 @@ function identityPreview(d) {
   <div class="id-card" style="--banner:${esc(d.banner_color)};--accent:${esc(d.accent_color)}">
     <div class="id-banner" style="height:56px"></div>
     <div class="id-body" style="padding-top:0">
-      <div class="id-avatar-wrap" style="margin-top:-30px">${bigAvatar(d, 60)}</div>
+      <div class="id-avatar-wrap" style="margin-top:-30px">
+        <button type="button" class="ep-avatar-btn" id="ep-avatar-btn" aria-label="Change profile photo">
+          ${bigAvatar(d, 60)}
+          <span class="ep-avatar-badge" aria-hidden="true">📷</span>
+        </button>
+      </div>
       <h3 class="id-name" style="font-size:var(--fs-16)">${esc(d.display_name || "Your name")}</h3>
       ${d.pronouns ? `<span class="id-pronouns">${esc(d.pronouns)}</span>` : ""}
       ${d.status_emoji || d.status_text ? `<div class="id-status">${esc(d.status_emoji)} ${esc(d.status_text)}</div>` : ""}
@@ -348,6 +414,114 @@ function openSupportSheet() {
           refresh();
         } catch (err) {
           toast(friendlyCloudError(err, "Couldn't redeem that code"));
+        }
+      });
+    },
+  });
+}
+
+/* ---------- account: email, password, delete ---------- */
+
+function openChangeEmail() {
+  const user = currentUser();
+  openSheet(`
+    <h2 class="sheet-title">Change email</h2>
+    <p class="t-secondary t-small" style="margin-bottom:14px">
+      We'll send a confirmation link to the new address. Your email changes after you click it.</p>
+    <form id="ce-form" class="stack">
+      <div class="field"><label class="field-label" for="ce-email">New email</label>
+        <input class="input" id="ce-email" type="email" required placeholder="${esc(user?.email || "you@example.com")}" autocomplete="email"></div>
+      <button class="btn btn-primary btn-block" id="ce-save">Send confirmation link</button>
+    </form>
+  `, {
+    onOpen(sheet, close) {
+      sheet.querySelector("#ce-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = sheet.querySelector("#ce-email").value.trim();
+        if (!email) return;
+        const btn = sheet.querySelector("#ce-save");
+        btn.disabled = true;
+        btn.textContent = "Sending…";
+        try {
+          await updateEmail(email);
+          close();
+          toast("Check " + email + " for a confirmation link");
+        } catch (err) {
+          toast(friendlyCloudError(err, "Couldn't update your email"));
+          btn.disabled = false;
+          btn.textContent = "Send confirmation link";
+        }
+      });
+    },
+  });
+}
+
+function openChangePassword() {
+  openSheet(`
+    <h2 class="sheet-title">Change password</h2>
+    <form id="cp-form" class="stack">
+      <div class="field"><label class="field-label" for="cp-pass">New password</label>
+        <input class="input" id="cp-pass" type="password" minlength="8" required placeholder="At least 8 characters" autocomplete="new-password"></div>
+      <div class="field"><label class="field-label" for="cp-pass2">Type it again</label>
+        <input class="input" id="cp-pass2" type="password" minlength="8" required autocomplete="new-password"></div>
+      <button class="btn btn-primary btn-block" id="cp-save">Update password</button>
+    </form>
+  `, {
+    onOpen(sheet, close) {
+      sheet.querySelector("#cp-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const a = sheet.querySelector("#cp-pass").value;
+        const b = sheet.querySelector("#cp-pass2").value;
+        if (a !== b) { toast("Those passwords don't match"); return; }
+        const btn = sheet.querySelector("#cp-save");
+        btn.disabled = true;
+        btn.textContent = "Updating…";
+        try {
+          await updatePassword(a);
+          close();
+          toast("Password updated");
+        } catch (err) {
+          toast(friendlyCloudError(err, "Couldn't update your password"));
+          btn.disabled = false;
+          btn.textContent = "Update password";
+        }
+      });
+    },
+  });
+}
+
+function openDeleteAccount() {
+  openSheet(`
+    <h2 class="sheet-title" style="color:var(--error)">Delete account</h2>
+    <p class="t-secondary" style="font-size:var(--fs-14);line-height:1.5;margin-bottom:12px">
+      This permanently erases your account. There is no undo.</p>
+    <div class="list" style="margin-bottom:14px">
+      <div class="list-row" style="min-height:44px"><div class="main t-small">Your profile, points, and shop items are deleted</div></div>
+      <div class="list-row" style="min-height:44px"><div class="main t-small">Groups you created are deleted <strong>for everyone in them</strong></div></div>
+      <div class="list-row" style="min-height:44px"><div class="main t-small">Your messages and contributions are removed from other groups</div></div>
+      <div class="list-row" style="min-height:44px"><div class="main t-small">Your local budget stays on this device (use "Start over" to erase it)</div></div>
+    </div>
+    <div class="field"><label class="field-label" for="da-confirm">Type <strong>DELETE</strong> to confirm</label>
+      <input class="input" id="da-confirm" autocomplete="off" autocapitalize="characters" placeholder="DELETE"></div>
+    <button class="btn btn-block" id="da-go" disabled
+      style="margin-top:14px;background:var(--error);color:#fff">Delete my account forever</button>
+  `, {
+    onOpen(sheet, close) {
+      const input = sheet.querySelector("#da-confirm");
+      const btn = sheet.querySelector("#da-go");
+      input.addEventListener("input", () => { btn.disabled = input.value.trim().toUpperCase() !== "DELETE"; });
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        btn.textContent = "Deleting…";
+        try {
+          await deleteAccount();
+          close();
+          toast("Your account has been deleted");
+          navigate("/auth");
+        } catch (err) {
+          toast(friendlyCloudError(err, "Couldn't delete your account"));
+          btn.disabled = false;
+          btn.textContent = "Delete my account forever";
         }
       });
     },

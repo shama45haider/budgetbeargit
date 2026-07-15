@@ -742,6 +742,28 @@ end $$;
 grant execute on function public.set_member_target(uuid, uuid, numeric) to authenticated;
 
 -- ============================================================
+-- V7: ACCOUNT DELETION
+-- ============================================================
+-- Clients can't touch auth.users directly; this definer function (owned by
+-- postgres, which has delete rights on the auth schema) lets a signed-in user
+-- delete exactly their own account. Every app table hangs off auth.users or
+-- profiles with ON DELETE CASCADE, so one delete wipes profile, memberships,
+-- contributions, messages, items, and owned groups. Storage objects don't
+-- cascade from auth.users, so the avatar files are cleared explicitly first.
+
+create or replace function public.delete_account()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  delete from storage.objects
+   where bucket_id = 'avatars' and name like auth.uid()::text || '/%';
+  delete from auth.users where id = auth.uid();
+end $$;
+
+revoke execute on function public.delete_account() from public, anon;
+grant execute on function public.delete_account() to authenticated;
+
+-- ============================================================
 -- Force PostgREST to reload its schema cache immediately, so new
 -- foreign keys (and other relationship changes) are visible to the API
 -- right away rather than waiting for its own periodic refresh.

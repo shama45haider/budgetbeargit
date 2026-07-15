@@ -134,3 +134,11 @@ a { color: var(--primary); text-decoration: none; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* In-app "Reduce motion" setting (Profile → Preferences) — same effect as the
+   OS-level preference above, but user-controlled per device. */
+[data-reduce-motion] *, [data-reduce-motion] *::before, [data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

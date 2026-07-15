@@ -107,6 +107,30 @@ export async function signOut() {
   notify();
 }
 
+export async function updatePassword(newPassword) {
+  const c = getClient();
+  const { error } = await c.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
+/** Sends a confirmation link to the new address; the change applies after they click it. */
+export async function updateEmail(newEmail) {
+  const c = getClient();
+  const { error } = await c.auth.updateUser({ email: newEmail });
+  if (error) throw error;
+}
+
+/** Deletes the auth user server-side (cascades to all app data), then clears the local session. */
+export async function deleteAccount() {
+  const c = getClient();
+  const { error } = await c.rpc("delete_account");
+  if (error) throw error;
+  await c.auth.signOut().catch(() => {}); // the user row is gone; local cleanup only
+  session = null;
+  profile = null;
+  notify();
+}
+
 /* ---------- Profile updates ---------- */
 
 export async function updateProfile(fields) {
