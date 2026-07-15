@@ -102,14 +102,14 @@ export function insights() {
   if (free < 0) {
     out.push({
       type: "watch", weight: 10,
-      text: `Your plan allocates ${money(-free)} more than you earn.`,
-      detail: "Trim category budgets or adjust savings so the plan balances.",
+      text: `Your plan spends ${money(-free)} more than you make.`,
+      detail: "Shrink a budget or two so the plan fits your paycheck.",
     });
   } else if (income > 0 && free > income * 0.12) {
     out.push({
       type: "idea", weight: 5,
-      text: `${money(free)}/month is unallocated.`,
-      detail: "Putting it toward your top goal would speed it up meaningfully.",
+      text: `${money(free)} a month is left over with no job yet.`,
+      detail: "Point it at your top goal and it starts working for you.",
     });
   }
 
@@ -118,7 +118,7 @@ export function insights() {
   if (da.monthRemaining > 0 && da.leftToday === 0 && da.spentToday > 0) {
     out.push({
       type: "watch", weight: 5,
-      text: "You've used today's flexible spending.",
+      text: "You’ve used today’s fun money.",
       detail: `Tomorrow resets to about ${money(da.perDay)}.`,
     });
   }

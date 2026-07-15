@@ -9,6 +9,7 @@ import { project, projectionLabels } from "../engine/forecast.js";
 import { lastMonthKeys, spentInMonth, spentThisMonth } from "../engine/metrics.js";
 import { ring, animateNumbers, openSheet } from "../ui/components.js";
 import { bars, lineChart, chartColors } from "../ui/chart.js";
+import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
 
 const scenarioState = { raise: false, extra: false, purchase: false, payoff: false };
 
@@ -28,6 +29,7 @@ export function renderInsights(view) {
 
   view.innerHTML = `
   <div class="screen">
+    ${demoBannerHTML()}
     <header class="screen-header">
       <h1>Insights</h1>
       <span class="sub">Plain English, real numbers</span>
@@ -48,13 +50,13 @@ export function renderInsights(view) {
       <h2 class="section-title">Monthly spending</h2>
       <div class="card">${bars(monthItems)}</div>` : ""}
 
-    <h2 class="section-title">Health breakdown</h2>
+    <h2 class="section-title">Your money health ${infoDot("health-score")}</h2>
     <div class="card">
       <div class="row" style="margin-bottom:14px">
         ${ring({ size: 84, stroke: 8, value: health.score / 100, labelHTML: `<strong class="t-num" style="font-size:1.2rem">${health.score}</strong>` })}
         <div class="grow">
           <h3>${health.grade}</h3>
-          <div class="t-small t-secondary">Six factors, weighted by impact.</div>
+          <div class="t-small t-secondary">Six things we look at, added up.</div>
         </div>
       </div>
       <div class="stack" style="--gap:8px">
@@ -69,21 +71,23 @@ export function renderInsights(view) {
       </div>
     </div>
 
-    <h2 class="section-title">Financial timeline</h2>
+    <h2 class="section-title">Your money future ${infoDot("timeline")}</h2>
     <div class="card">
-      <div class="t-small t-secondary" style="margin-bottom:10px">Your projected savings cushion, 12 months out. Toggle a scenario to see the effect.</div>
+      <div class="t-small t-secondary" style="margin-bottom:10px">Where your savings could be in a year. Tap a "what if?" to see how it changes.</div>
       <div id="timeline-chart">${timelineChart()}</div>
       <div class="chip-row" style="margin-top:12px" id="scenario-chips">
-        <button class="chip" data-sc="raise" aria-pressed="${scenarioState.raise}">+10% raise</button>
+        <button class="chip" data-sc="raise" aria-pressed="${scenarioState.raise}">What if I get a raise?</button>
         <button class="chip" data-sc="extra" aria-pressed="${scenarioState.extra}">Save $150 more</button>
-        <button class="chip" data-sc="purchase" aria-pressed="${scenarioState.purchase}">$2k purchase</button>
-        <button class="chip" data-sc="payoff" aria-pressed="${scenarioState.payoff}">Attack debt</button>
+        <button class="chip" data-sc="purchase" aria-pressed="${scenarioState.purchase}">Buy something big ($2k)</button>
+        <button class="chip" data-sc="payoff" aria-pressed="${scenarioState.payoff}">Pay off debt faster</button>
       </div>
       <div class="t-small" id="timeline-summary" style="margin-top:10px">${timelineSummary()}</div>
     </div>
   </div>`;
 
   animateNumbers(view);
+  bindInfoDots(view);
+  bindDemoBanner(view);
   view.querySelector("#btn-review").addEventListener("click", openWeeklyReview);
   view.querySelectorAll("#scenario-chips .chip").forEach((c) =>
     c.addEventListener("click", () => {
@@ -134,13 +138,13 @@ function timelineSummary() {
   const base = project(12);
   const end = base[base.length - 1];
   if (!anyScenario()) {
-    return `On your current plan you'd have about <strong class="t-num">${moneyShort(end)}</strong> in 12 months.`;
+    return `Keep going like this and you'd have about <strong class="t-num">${moneyShort(end)}</strong> saved a year from now.`;
   }
   const sim = project(12, activeScenario());
   const simEnd = sim[sim.length - 1];
   const diff = simEnd - end;
-  return `Scenario ends at <strong class="t-num">${moneyShort(simEnd)}</strong> — ${diff >= 0
-    ? `<span class="t-pos">${moneyShort(diff)} more</span>` : `<span class="t-neg">${moneyShort(-diff)} less</span>`} than your current path.`;
+  return `With that change you'd have <strong class="t-num">${moneyShort(simEnd)}</strong> — ${diff >= 0
+    ? `<span class="t-pos">${moneyShort(diff)} more</span>` : `<span class="t-neg">${moneyShort(-diff)} less</span>`} than staying the course.`;
 }
 
 function openWeeklyReview() {

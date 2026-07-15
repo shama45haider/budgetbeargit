@@ -11,15 +11,20 @@ import { currentUser, myProfile, updateProfile, uploadAvatar, signOut } from "..
 import { cloudConfigured } from "../cloud/config.js";
 import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
 import { authNext } from "./auth.js";
+import { flairStyle, effectClass, tagHTML, levelFor } from "../data/shop.js";
+import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
 
 export function renderProfile(view) {
   const s = get();
   const unlockedCount = Object.keys(s.achievements.unlocked).length;
   const user = currentUser();
   const p = myProfile();
+  const points = user && p ? (p.points ?? 0) : s.points.balance;
+  const lvl = levelFor(user && p ? (p.lifetime_points ?? 0) : s.points.balance);
 
   view.innerHTML = `
   <div class="screen">
+    ${demoBannerHTML()}
     <header class="screen-header">
       <h1>Profile</h1>
       ${user ? `<button class="btn-ghost t-small" id="btn-signout">Sign out</button>` : ""}
@@ -28,10 +33,21 @@ export function renderProfile(view) {
     ${user && p ? identityCard(p) : signedOutCard()}
 
     <div class="profile-stats card" style="margin-top:12px">
-      <div><strong class="t-num" data-count-to="${s.points.balance}">0</strong><small>Bear Points</small></div>
-      <div><strong class="t-num">${s.points.streak}</strong><small>Day streak</small></div>
-      <div><strong class="t-num">${unlockedCount}</strong><small>Achievements</small></div>
+      <div><strong class="t-num" data-count-to="${points}">0</strong><small>Bear Points ${infoDot("bear-points")}</small></div>
+      <div><strong class="t-num">${s.points.streak}</strong><small>Streak ${infoDot("streak")}</small></div>
+      <div><strong class="t-num">${lvl.level}</strong><small>${esc(lvl.title)} ${infoDot("level")}</small></div>
     </div>
+
+    <button class="card tappable shop-cta" id="btn-shop" style="width:100%;text-align:left;margin-top:12px">
+      <div class="row">
+        <div class="icon-bubble" style="width:44px;height:44px;border-radius:14px;font-size:20px">🛍️</div>
+        <div class="grow">
+          <h3>Points Shop</h3>
+          <div class="t-small t-secondary">Spend <strong class="t-num">${points}</strong> points on flairs, tags, and name effects</div>
+        </div>
+        <span class="chev">›</span>
+      </div>
+    </button>
 
     <h2 class="section-title">Achievements · ${unlockedCount}/${ACHIEVEMENTS.length}</h2>
     <div class="ach-grid">
@@ -56,9 +72,9 @@ export function renderProfile(view) {
 
     <h2 class="section-title">Money settings</h2>
     <div class="list">
-      ${settingRow("Monthly income", money(s.income.monthly), "income")}
-      ${settingRow("Savings on hand", money(s.settings.savingsBuffer || 0), "cushion")}
-      ${settingRow("Debts", s.debts.length ? s.debts.length + " tracked · " + money(s.debts.reduce((a, d) => a + d.balance, 0)) : "None tracked", "debts")}
+      ${settingRow("What I make each month", money(s.income.monthly), "income")}
+      ${settingRow("Savings I have right now", money(s.settings.savingsBuffer || 0), "cushion")}
+      ${settingRow("What I owe", s.debts.length ? s.debts.length + " tracked · " + money(s.debts.reduce((a, d) => a + d.balance, 0)) : "Nothing tracked", "debts")}
     </div>
 
     <h2 class="section-title">Data</h2>
@@ -74,7 +90,7 @@ export function renderProfile(view) {
       <a class="list-row" href="mailto:help@budgetbear.xyz"><div class="main"><div class="name">help@budgetbear.xyz</div><div class="meta">Support</div></div><span class="chev">›</span></a>
     </div>
     <p class="t-small t-secondary" style="text-align:center;margin-top:20px">
-      Your budget stays on this device.${user ? " Your account stores only your profile and groups." : ""}
+      Your budget stays on this device.${user ? " Your account stores your profile, points, and groups." : ""}
     </p>
   </div>`;
 
@@ -85,6 +101,9 @@ export function renderProfile(view) {
     authNext("/profile");
     navigate("/auth");
   });
+  view.querySelector("#btn-shop").addEventListener("click", () => navigate("/shop"));
+  bindInfoDots(view);
+  bindDemoBanner(view);
   view.querySelector("#btn-signout")?.addEventListener("click", async () => {
     if (await confirmSheet({ title: "Sign out?", body: "Your local budget stays on this device. Groups and profile need you signed in.", confirmLabel: "Sign out" })) {
       await signOut();
@@ -121,14 +140,19 @@ export function renderProfile(view) {
 /* ---------- identity card ---------- */
 
 function identityCard(p) {
+  const flair = flairStyle(p.equipped);
+  const fx = effectClass(p.equipped);
   return `
   <section class="id-card" style="--banner:${esc(p.banner_color)};--accent:${esc(p.accent_color)}">
-    <div class="id-banner"></div>
+    <div class="id-banner" ${flair ? `style="${flair}"` : ""}></div>
     <div class="id-body">
       <div class="id-avatar-wrap">${bigAvatar(p, 76)}</div>
       <div class="row" style="align-items:flex-start">
         <div class="grow">
-          <h2 class="id-name">${esc(p.display_name)}</h2>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <h2 class="id-name ${fx}">${esc(p.display_name)}</h2>
+            ${tagHTML(p.equipped)}
+          </div>
           ${p.pronouns ? `<span class="id-pronouns">${esc(p.pronouns)}</span>` : ""}
           ${p.status_emoji || p.status_text ? `
             <div class="id-status">${esc(p.status_emoji)} ${esc(p.status_text)}</div>` : ""}

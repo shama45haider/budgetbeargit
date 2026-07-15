@@ -7,6 +7,7 @@ import { openSheet, toast, animateNumbers, confirmSheet } from "../ui/components
 import { CATALOG, catInfo } from "../data/categories.js";
 import { checkAchievements } from "../engine/points.js";
 import { refresh } from "../router.js";
+import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
 
 export function renderBudget(view) {
   const s = get();
@@ -21,6 +22,7 @@ export function renderBudget(view) {
 
   view.innerHTML = `
   <div class="screen">
+    ${demoBannerHTML()}
     <header class="screen-header">
       <h1>Budget</h1>
       <span class="sub">${monthLabel()}</span>
@@ -29,12 +31,12 @@ export function renderBudget(view) {
     <section class="card">
       <div class="row">
         <div class="grow">
-          <div class="card-title">Spent this month</div>
+          <div class="card-title">Spent so far this month</div>
           <div class="card-hero-value t-num" style="font-size:var(--fs-26)">${money(spent)}</div>
           <div class="t-small t-secondary">of ${money(limit)} planned</div>
         </div>
         <div style="text-align:right">
-          <div class="card-title">Remaining</div>
+          <div class="card-title">Remaining ${infoDot("remaining-budget")}</div>
           <div class="t-num" style="font-size:var(--fs-20);font-weight:var(--fw-bold)" class="${limit - spent < 0 ? "t-neg" : ""}">${money(Math.max(0, limit - spent))}</div>
         </div>
       </div>
@@ -90,6 +92,8 @@ export function renderBudget(view) {
   </div>`;
 
   animateNumbers(view);
+  bindInfoDots(view);
+  bindDemoBanner(view);
 
   view.querySelector("#btn-add-tx").addEventListener("click", () => openAddTx());
   view.querySelector("#btn-edit-budget").addEventListener("click", openEditBudget);

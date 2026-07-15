@@ -85,7 +85,7 @@ function greetingAnswer() {
   const da = dailyAllowance();
   return {
     html: `<p>${name ? `Hi ${esc(name)}. ` : "Hi. "}I'm your financial coach — I work from your actual numbers, not generic advice.</p>
-      <p style="margin-top:8px">Today you have about <strong>${money(da.leftToday)}</strong> of flexible spending left. Ask me anything below.</p>`,
+      <p style="margin-top:8px">Today you have about <strong>${money(da.leftToday)}</strong> of fun money left today. Ask me anything below.</p>`,
     chips: starterChips,
   };
 }
@@ -110,16 +110,16 @@ function affordAnswer(text, amount) {
 
   if (amount <= da.leftToday) {
     kind = "yes";
-    why.push(`It fits inside today's flexible allowance of ${money(da.leftToday)}.`);
+    why.push(`It fits inside today's fun money (${money(da.leftToday)}).`);
     why.push(`Your ${money(billTotal)} of bills due in the next 14 days are already accounted for.`);
   } else if (amount <= flex.remaining) {
     kind = "caution";
-    why.push(`It's more than today's allowance (${money(da.leftToday)}), but fits within the ${money(flex.remaining)} flexible budget left this month.`);
+    why.push(`It's more than today's fun money (${money(da.leftToday)}), but it fits in the ${money(flex.remaining)} of fun money left this month.`);
     why.push(`Spending it means about ${money(Math.max(0, (flex.remaining - amount) / da.daysLeft))}/day for the rest of the month, down from ${money(da.perDay)}.`);
     if (billTotal > 0) why.push(`Bills due soon (${money(billTotal)}) are covered by your essential budget, so they're not at risk.`);
   } else if (amount <= cushion * 0.25 && cushion > 0) {
     kind = "caution";
-    why.push(`It exceeds this month's remaining flexible budget (${money(Math.max(0, flex.remaining))}).`);
+    why.push(`It's more than the fun money you have left this month (${money(Math.max(0, flex.remaining))}).`);
     why.push(`You could cover it from savings (${money(cushion)} on hand), using ${Math.round((amount / cushion) * 100)}% of your cushion.`);
     if (topGoal) {
       const st = goalStats(topGoal);
@@ -127,7 +127,7 @@ function affordAnswer(text, amount) {
     }
   } else {
     kind = "no";
-    why.push(`It's larger than your remaining flexible budget (${money(Math.max(0, flex.remaining))}) this month.`);
+    why.push(`It's bigger than the fun money you have left this month (${money(Math.max(0, flex.remaining))}).`);
     if (cushion > 0) why.push(`It would consume ${Math.round((amount / cushion) * 100)}% of your ${money(cushion)} savings cushion — too much for a discretionary purchase.`);
     else why.push(`You don't have a savings cushion to absorb it yet.`);
     why.push(`A safer path: set aside ${money(amount / 3)}/month and buy it in 3 months without touching your plan.`);
@@ -138,7 +138,7 @@ function affordAnswer(text, amount) {
       ${verdict(kind, kind === "yes" ? `Yes — ${money(amount)} fits comfortably` : kind === "caution" ? `${money(amount)} is doable, with trade-offs` : `${money(amount)} doesn't fit right now`)}
       ${block("Your position", [
         ["Left today", money(da.leftToday)],
-        ["Flexible left this month", money(Math.max(0, flex.remaining))],
+        ["Fun money left this month", money(Math.max(0, flex.remaining))],
         ["Bills next 14 days", money(billTotal)],
         ["Savings cushion", money(cushion)],
       ])}
@@ -161,7 +161,7 @@ function planAnswer(thing, target, downPct = null) {
   eta.setMonth(eta.getMonth() + months);
 
   const why = [
-    `Your plan can realistically put ${money(capacity)}/month toward this (planned savings ${money(plannedSavings)}${free > 0 ? ` + ${money(free)} unallocated` : ""}).`,
+    `Your plan can realistically put ${money(capacity)}/month toward this (planned savings ${money(plannedSavings)}${free > 0 ? ` + ${money(free)} left over each month` : ""}).`,
     downPct ? `For ${thing} around ${money(target)}, a ${Math.round(downPct * 100)}% down payment is ${money(goalAmount)} — that's the real savings target.` : `Target amount: ${money(goalAmount)}.`,
     `${money(goalAmount)} ÷ ${money(capacity)}/month ≈ ${months} months.`,
   ];
@@ -281,7 +281,7 @@ function spendingAnswer() {
     `Total spent so far in ${monthLabel()}: ${money(total)}.`,
     `${esc(cats[0].name)} is your largest area at ${Math.round((cats[0].spent / total) * 100)}% of spending.`,
   ];
-  if (biggestFlex) why.push(`${esc(biggestFlex.name)} is your biggest flexible area — that's where a change would show up fastest.`);
+  if (biggestFlex) why.push(`${esc(biggestFlex.name)} is your biggest want-not-need area — cutting there shows up fastest.`);
   return {
     html: `${block("This month", rows)}${reasoning(why)}`,
     chips: ["How can I save more?", "Subscriptions check", "How am I doing?"],
@@ -296,7 +296,7 @@ function saveMoreAnswer() {
   const shopping = s.budget.categories.find((c) => c.id === "shopping");
   const { free } = cashFlow();
 
-  if (free > 20) ideas.push(`You have <strong>${money(free)}/month unallocated</strong>. Direct it to your top goal — it's the easiest win because it requires no lifestyle change.`);
+  if (free > 20) ideas.push(`You have <strong>${money(free)} a month left over</strong> with no job yet. Point it at your top goal — it's the easiest win because nothing about your life has to change.`);
   if (subs.monthly > 30) ideas.push(`Audit subscriptions (${money(subs.monthly)}/mo). Cutting a third saves about ${money(subs.monthly * 4)}/year.`);
   if (dining?.limit >= 150) ideas.push(`Trim dining out by ${money(25)}/week — that's ${money(1300)}/year without cutting it entirely.`);
   if (shopping?.limit >= 100) ideas.push(`Try a 48-hour rule on shopping over ${money(50)}: if you still want it two days later, buy it.`);
@@ -323,13 +323,13 @@ function emergencyAnswer() {
       ${verdict(months >= 3 ? "yes" : months >= 1.5 ? "caution" : "no",
         months >= 3 ? "Your emergency fund is solid" : `You're at ${months.toFixed(1)} of 3 months`)}
       ${block("Emergency fund", [
-        ["Essential costs / month", money(essentials)],
+        ["Must-pays each month", money(essentials)],
         ["3-month target", money(target)],
         ["You have", money(have)],
         ["Gap", money(gap)],
       ])}
       ${reasoning([
-        `Three months of essentials (${money(essentials)}/mo) protects you from most income shocks.`,
+        `Three months of must-pays (${money(essentials)}/mo) keeps you safe if your income stops for a while.`,
         gap > 0
           ? `At your planned ${money(plannedSavings)}/month savings pace, you'd close the gap in about ${Math.ceil(gap / plannedSavings)} months.`
           : `You've hit the 3-month benchmark — extra savings can now go toward goals or investments.`,

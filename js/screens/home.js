@@ -9,6 +9,8 @@ import { goalStats } from "../engine/goals.js";
 import { ring, animateNumbers, openSheet, toast } from "../ui/components.js";
 import { dailyCheckIn, hasCheckedInToday, checkAchievements } from "../engine/points.js";
 import { navigate, refresh } from "../router.js";
+import { myProfile, currentUser } from "../cloud/client.js";
+import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
 
 export function renderHome(view) {
   const s = get();
@@ -18,25 +20,27 @@ export function renderHome(view) {
   const rec = topRecommendation();
   const goal = [...s.goals].filter((g) => !g.completedAt).sort(byPriority)[0];
   const checked = hasCheckedInToday();
+  const points = currentUser() && myProfile() ? (myProfile().points ?? s.points.balance) : s.points.balance;
 
   view.innerHTML = `
   <div class="screen">
+    ${demoBannerHTML()}
     <header class="home-top">
       <div>
         <div class="t-small t-secondary">${greeting()}${s.profile.name ? "," : ""}</div>
         <h1>${esc(s.profile.name || "Welcome")}</h1>
       </div>
-      <button class="points-pill" data-nav="/profile" aria-label="Bear Points">
+      <button class="points-pill" data-nav="/shop" aria-label="Bear Points — open the Shop">
         <img src="assets/bears/coinbear.png" alt="" width="22" height="22">
-        <span class="t-num" data-count-to="${s.points.balance}">0</span>
+        <span class="t-num" data-count-to="${points}">0</span>
       </button>
     </header>
 
     <section class="card hero-card" aria-label="Money left today">
-      <div class="card-title">Left to spend today</div>
+      <div class="card-title">Left to spend today ${infoDot("left-today")}</div>
       <div class="card-hero-value t-num">${money(da.leftToday)}</div>
       <div class="hero-meta t-small t-secondary">
-        ${money(da.perDay)}/day pace · ${money(Math.max(0, da.monthRemaining))} flexible left in ${monthLabel().split(" ")[0]}
+        about ${money(da.perDay)} each day · ${money(Math.max(0, da.monthRemaining))} fun money left in ${monthLabel().split(" ")[0]}
       </div>
       <div class="progress" style="margin-top:14px" role="progressbar" aria-valuenow="${Math.round((1 - da.leftToday / (da.perDay || 1)) * 100)}">
         <i style="width:${Math.min(100, Math.round((da.spentToday / (da.perDay || 1)) * 100))}%"></i>
@@ -69,13 +73,13 @@ export function renderHome(view) {
         </div>
       </button>`}
 
-    <h2 class="section-title">Financial health</h2>
+    <h2 class="section-title">Money health ${infoDot("health-score")}</h2>
     <button class="card tappable" style="width:100%;text-align:left" data-nav="/insights">
       <div class="row">
         ${ring({ size: 74, stroke: 7, value: health.score / 100, labelHTML: `<strong class="t-num" style="font-size:1.05rem">${health.score}</strong>` })}
         <div class="grow">
           <h3>${health.grade}</h3>
-          <div class="t-small t-secondary">${esc(health.improvements[0] ? "Next: improve " + health.improvements[0].label.toLowerCase() : "All factors look strong")}</div>
+          <div class="t-small t-secondary">${esc(health.improvements[0] ? "Next up: " + health.improvements[0].label.toLowerCase() : "Everything looks strong")}</div>
         </div>
         <span class="chev">›</span>
       </div>
@@ -95,6 +99,8 @@ export function renderHome(view) {
 
   animateNumbers(view);
   wireNav(view);
+  bindInfoDots(view);
+  bindDemoBanner(view);
 
   view.querySelector("#btn-checkin")?.addEventListener("click", () => openCheckIn(da, bills, goal));
 }
@@ -120,7 +126,7 @@ function todayPlanRows(da, bills, goal) {
       rows.push(row(goal.icon, `Save toward ${esc(goal.name)}`, "Weekly target", money(st.requiredMonthly / 4.345)));
     }
   }
-  rows.push(row("☕", "Flexible spending", "Keep it under", money(da.leftToday)));
+  rows.push(row("☕", "Fun money today", "Try to stay under", money(da.leftToday)));
   return rows.join("");
 }
 
@@ -158,7 +164,7 @@ function openCheckIn(da, bills, goal) {
   openSheet(`
     <h2 class="sheet-title">Today's review</h2>
     <div class="stack">
-      <div class="callout"><span>💵</span><div><strong>${money(da.leftToday)}</strong> available for flexible spending today.</div></div>
+      <div class="callout"><span>💵</span><div><strong>${money(da.leftToday)}</strong> of fun money for today.</div></div>
       ${billsSoon.length ? `<div class="callout"><span>📅</span><div>${billsSoon.map((b) => `${esc(b.name)} ${b.inDays === 0 ? "due today" : relativeDay(b.dueDate).toLowerCase()} (${money(b.amount)})`).join(" · ")}</div></div>` : ""}
       ${goal && st && !st.complete ? `<div class="callout"><span>${goal.icon}</span><div>${esc(goal.name)}: ${esc(st.nextAction)}</div></div>` : ""}
       <div class="callout"><span>🔥</span><div>Streak: <strong>${s.points.streak} day${s.points.streak === 1 ? "" : "s"}</strong>. Checking in daily earns 10 Bear Points.</div></div>

@@ -87,7 +87,7 @@ export async function groupMembers(groupId) {
   const c = getClient();
   const { data, error } = await c
     .from("group_members")
-    .select("user_id, saved, accent_color, role, joined_at, profiles:user_id(display_name, avatar_url, status_emoji, status_text, accent_color)")
+    .select("user_id, saved, accent_color, role, joined_at, profiles:user_id(display_name, avatar_url, status_emoji, status_text, accent_color, equipped, lifetime_points)")
     .eq("group_id", groupId);
   if (error) throw error;
   return (data || []).map((m) => ({
@@ -100,6 +100,8 @@ export async function groupMembers(groupId) {
     avatar: m.profiles?.avatar_url || null,
     statusEmoji: m.profiles?.status_emoji || "",
     statusText: m.profiles?.status_text || "",
+    equipped: m.profiles?.equipped || {},
+    lifetimePoints: m.profiles?.lifetime_points || 0,
   })).sort((a, b) => b.saved - a.saved || a.joinedAt.localeCompare(b.joinedAt));
 }
 
@@ -181,4 +183,39 @@ export function subscribeGroup(groupId, onChange) {
       onChange)
     .subscribe();
   return () => c.removeChannel(channel);
+}
+
+/* ---------- Points & Shop ---------- */
+
+/** Server-side point award (capped + rate-limited in the RPC). Returns new balance. */
+export async function earnPoints(amount, reason) {
+  const c = getClient();
+  const { data, error } = await c.rpc("earn_points", { p_amount: amount, p_reason: reason });
+  if (error) throw error;
+  return data.points;
+}
+
+/** Buy a shop item; price and balance are checked server-side. */
+export async function buyItem(itemId) {
+  const c = getClient();
+  const { data, error } = await c.rpc("buy_item", { p_item_id: itemId });
+  if (error) throw error;
+  return data; // { points } or { error, ... }
+}
+
+/** Equip an owned item into a slot ('flair'|'tag'|'effect'); null unequips. */
+export async function equipItem(slot, itemId) {
+  const c = getClient();
+  const { data, error } = await c.rpc("equip_item", { p_slot: slot, p_item_id: itemId });
+  if (error) throw error;
+  return data;
+}
+
+/** Item ids the current user owns. */
+export async function myItems() {
+  const c = getClient();
+  const { data, error } = await c.from("user_items")
+    .select("item_id").eq("user_id", currentUser().id);
+  if (error) throw error;
+  return (data || []).map((r) => r.item_id);
 }

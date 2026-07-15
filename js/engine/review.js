@@ -53,7 +53,7 @@ export function weeklyReview() {
   }
 
   const flex = flexibleRemaining();
-  if (flex.remaining < 0) watch.push(`Flexible spending is ${money(-flex.remaining)} over plan this month.`);
+  if (flex.remaining < 0) watch.push(`Fun money is ${money(-flex.remaining)} over plan this month.`);
 
   // Trends: top 3 categories this month
   const byCat = s.budget.categories

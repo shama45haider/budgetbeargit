@@ -1,10 +1,14 @@
-/* Budget Bear — sign in / create account. */
+/* Budget Bear — the front door: sign in, create account, or watch the live demo. */
 
 import { esc } from "../format.js";
 import { cloudConfigured, GOOGLE_AUTH_ENABLED, TURNSTILE_ENABLED, TURNSTILE_SITE_KEY } from "../cloud/config.js";
 import { cloudReady, signIn, signUp, sendMagicLink, signInWithGoogle, currentUser } from "../cloud/client.js";
-import { toast } from "../ui/components.js";
+import { toast, confirmSheet } from "../ui/components.js";
+import { showLoader, hideLoader } from "../ui/loader.js";
 import { navigate } from "../router.js";
+import { get, update } from "../store.js";
+import { buildSeed } from "../data/seed.js";
+import { onSignedIn } from "../engine/points.js";
 
 let mode = "signin"; // signin | signup | magic
 let captchaToken = null;
@@ -48,7 +52,7 @@ export function authNext(path) {
 export function consumeAuthNext() {
   const next = sessionStorage.getItem("bb.authNext");
   sessionStorage.removeItem("bb.authNext");
-  return next || "/groups";
+  return next || "/home";
 }
 
 export function renderAuth(view) {
@@ -62,7 +66,9 @@ export function renderAuth(view) {
           <h3>Online features aren't set up yet</h3>
           <p>Accounts and Group Links need the Supabase project configured. See SETUP-SUPABASE.md in the repo.</p>
         </div>
+        <button class="btn btn-secondary btn-block" id="au-demo">Watch the live demo instead</button>
       </div>`;
+    view.querySelector("#au-demo").addEventListener("click", startDemo);
     return;
   }
 
@@ -72,8 +78,8 @@ export function renderAuth(view) {
       <img src="assets/banner-wide.png" alt="Budget Bear" style="width:min(260px,70%);height:auto">
       <h1>${mode === "signup" ? "Create your account" : "Welcome back"}</h1>
       <p class="t-secondary">${mode === "signup"
-        ? "Save together with friends. Pick any name — you can customize everything later."
-        : mode === "magic" ? "We'll email you a one-tap sign-in link." : "Sign in to your groups and profile."}</p>
+        ? "Save with friends, earn Bear Points, and spend them in the Shop."
+        : mode === "magic" ? "We'll email you a one-tap sign-in link." : "Sign in to your groups, points, and profile."}</p>
     </div>
 
     <form id="auth-form" class="stack">
@@ -98,13 +104,14 @@ export function renderAuth(view) {
           <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
           Continue with Google
         </button>` : ""}
+      ${mode === "signin" ? `<button class="btn btn-secondary btn-block" data-mode="signup">Create a free account</button>` : ""}
+      <button class="btn btn-ghost btn-block" id="au-demo">Watch the live demo — no account needed</button>
       ${mode !== "magic" ? `<button class="btn btn-ghost btn-block" data-mode="magic">Email me a sign-in link instead</button>` : ""}
       ${mode === "magic" ? `<button class="btn btn-ghost btn-block" data-mode="signin">Use a password instead</button>` : ""}
-      ${mode === "signin" ? `<button class="btn btn-ghost btn-block" data-mode="signup">New here? Create an account</button>` : ""}
       ${mode === "signup" ? `<button class="btn btn-ghost btn-block" data-mode="signin">Already have an account? Sign in</button>` : ""}
     </div>
     <p class="t-small t-secondary" style="text-align:center;margin-top:18px">
-      Your budget stays on this device. Your account only stores your profile and groups.
+      Your budget stays on this device. Your account stores your profile, points, and groups.
     </p>
   </div>`;
 
@@ -112,6 +119,8 @@ export function renderAuth(view) {
 
   view.querySelectorAll("[data-mode]").forEach((b) =>
     b.addEventListener("click", () => { mode = b.dataset.mode; renderAuth(view); }));
+
+  view.querySelector("#au-demo").addEventListener("click", startDemo);
 
   view.querySelector("#au-google")?.addEventListener("click", async () => {
     try { await signInWithGoogle(); } catch (e) { toast(friendly(e)); }
@@ -128,10 +137,11 @@ export function renderAuth(view) {
     }
 
     btn.disabled = true;
-    btn.textContent = "One moment…";
+    showLoader(mode === "signup" ? "Building your den…" : mode === "magic" ? "Sending your link…" : "Signing you in…");
     try {
       if (mode === "magic") {
         await sendMagicLink(email, captchaToken);
+        hideLoader();
         view.querySelector(".auth-hero p").textContent = "Link sent — check your email and tap it on this device.";
         toast("Sign-in link sent");
         btn.textContent = "Link sent ✓";
@@ -143,6 +153,7 @@ export function renderAuth(view) {
         const res = await signUp(email, pass, name, captchaToken);
         if (res.user && !res.session) {
           // email confirmation is enabled in the Supabase project
+          hideLoader();
           view.querySelector(".auth-hero p").textContent = "Almost there — confirm via the email we just sent, then sign in.";
           toast("Check your email to confirm");
           mode = "signin";
@@ -152,18 +163,39 @@ export function renderAuth(view) {
       } else {
         await signIn(email, pass, captchaToken);
       }
+      // Coming from the demo? Keep the local budget, drop the demo label.
+      if (get().profile.demo) update((s) => { s.profile.demo = false; });
+      onSignedIn(); // syncs points with the cloud (and migrates local points once)
+      hideLoader();
       toast(mode === "signup" ? "Welcome to Budget Bear" : "Signed in");
       navigate(consumeAuthNext());
     } catch (err) {
+      hideLoader();
       toast(friendly(err));
       btn.disabled = false;
-      btn.textContent = mode === "signup" ? "Create account" : mode === "magic" ? "Email me a link" : "Sign in";
       // Turnstile tokens are single-use — refresh the widget so retry can succeed.
       if (TURNSTILE_ENABLED && window.turnstile && captchaWidgetId != null) {
         window.turnstile.reset(captchaWidgetId);
       }
     }
   });
+}
+
+async function startDemo() {
+  const s = get();
+  if (s.profile.onboarded && !s.profile.demo) {
+    const ok = await confirmSheet({
+      title: "Replace saved data?",
+      body: "This device already has a budget on it. The demo will replace it. Sign in instead to keep your data.",
+      confirmLabel: "Show me the demo anyway",
+      danger: true,
+    });
+    if (!ok) return;
+  }
+  showLoader("Setting up the demo…");
+  const seed = buildSeed();
+  update((st) => Object.assign(st, seed));
+  setTimeout(() => { hideLoader(); navigate("/home"); }, 500);
 }
 
 function friendly(err) {

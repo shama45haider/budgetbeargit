@@ -38,18 +38,18 @@ export function healthScore() {
     : 0.5;
 
   const factors = [
-    { id: "savings", label: "Savings rate", score: savingsScore, weight: 0.22,
-      detail: pctLabel(savingsRate) + " of income saved", target: "Aim for 20% of income" },
-    { id: "debt", label: "Debt load", score: debtScore, weight: 0.18,
-      detail: debt > 0 ? "Debt is " + pctLabel(debtRatio) + " of annual income" : "No tracked debt", target: "Keep debt under 25% of annual income" },
-    { id: "cashflow", label: "Cash flow", score: flowScore, weight: 0.18,
-      detail: free >= 0 ? "Income covers your plan" : "Plan exceeds income", target: "Spend less than you earn" },
-    { id: "consistency", label: "Consistency", score: consistencyScore, weight: 0.14,
-      detail: pctLabel(consistencyScore) + " of recent months on budget", target: "Stay under budget each month" },
-    { id: "emergency", label: "Emergency fund", score: efScore, weight: 0.16,
-      detail: efMonths.toFixed(1) + " months of essentials covered", target: "Build toward 3 months" },
-    { id: "goals", label: "Goal progress", score: goalScore, weight: 0.12,
-      detail: active.length ? active.length + " active goal" + (active.length > 1 ? "s" : "") + " in motion" : "No active goals yet", target: "Keep goals moving" },
+    { id: "savings", label: "How much you save", info: "saving-rate", score: savingsScore, weight: 0.22,
+      detail: "You keep " + pctLabel(savingsRate) + " of what you make", target: "Try to keep 20 cents of every dollar" },
+    { id: "debt", label: "What you owe", info: "what-you-owe", score: debtScore, weight: 0.18,
+      detail: debt > 0 ? "You owe " + pctLabel(debtRatio) + " of a year's pay" : "You don't owe anything", target: "Keep it under a quarter of a year's pay" },
+    { id: "cashflow", label: "Money in vs. out", info: "money-in-out", score: flowScore, weight: 0.18,
+      detail: free >= 0 ? "You make more than your plan spends" : "Your plan spends more than you make", target: "Make more than you spend" },
+    { id: "consistency", label: "Sticking to your plan", info: "sticking-to-plan", score: consistencyScore, weight: 0.14,
+      detail: "On budget " + pctLabel(consistencyScore) + " of recent months", target: "Stay under budget each month" },
+    { id: "emergency", label: "Rainy-day fund", info: "rainy-day", score: efScore, weight: 0.16,
+      detail: efMonths.toFixed(1) + " months of must-pays saved up", target: "Build toward 3 months" },
+    { id: "goals", label: "Goal progress", info: "goal-progress", score: goalScore, weight: 0.12,
+      detail: active.length ? active.length + " goal" + (active.length > 1 ? "s" : "") + " moving forward" : "No goals started yet", target: "Keep goals moving" },
   ];
 
   const score = Math.round(factors.reduce((a, f) => a + f.score * f.weight, 0) * 100);

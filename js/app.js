@@ -1,4 +1,4 @@
-/* Budget Bear — entry point: nav, routes, cloud boot */
+/* Budget Bear — entry point: nav, routes, accounts-first boot */
 
 import { get } from "./store.js";
 import * as router from "./router.js";
@@ -12,7 +12,9 @@ import { renderOnboarding } from "./screens/onboarding.js";
 import { renderAuth } from "./screens/auth.js";
 import { renderGroups, renderJoin } from "./screens/groups.js";
 import { renderGroupDetail } from "./screens/groupDetail.js";
-import { initCloud, onAuthChange } from "./cloud/client.js";
+import { renderShop } from "./screens/shop.js";
+import { initCloud, onAuthChange, currentUser } from "./cloud/client.js";
+import { showLoader, hideLoader } from "./ui/loader.js";
 
 const icons = {
   home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-5.5a2 2 0 0 1 4 0V21h3.5a1 1 0 0 0 1-1V9.5"/></svg>`,
@@ -48,39 +50,62 @@ router.register("/insights", renderInsights);
 router.register("/profile", renderProfile);
 router.register("/onboarding", renderOnboarding);
 router.register("/auth", renderAuth);
+router.register("/shop", renderShop);
 router.register("/group/:id", renderGroupDetail);
 router.register("/join/:code", renderJoin);
 
 router.setGuard((path) => {
-  const onboarded = get().profile.onboarded;
-  // Join links and auth work even before local onboarding — joining a friend's
-  // group is a legitimate first touch. Everything else requires setup.
-  const preOnboardingAllowed = path.startsWith("/join/") || path === "/auth" || path.startsWith("/group/");
-  if (!onboarded && path !== "/onboarding" && !preOnboardingAllowed) return "/onboarding";
+  const signedIn = !!currentUser();
+  const { demo, onboarded } = get().profile;
+
+  // Accounts are the front door. Only the auth screen and invite links are
+  // reachable without an account or the demo (join links route through auth
+  // themselves, preserving the destination).
+  if (!signedIn && !demo) {
+    if (path === "/auth" || path.startsWith("/join/")) return null;
+    return "/auth";
+  }
+
+  if (!onboarded && !["/onboarding", "/auth"].includes(path) && !path.startsWith("/join/") && !path.startsWith("/group/")) {
+    return "/onboarding";
+  }
   if (onboarded && path === "/onboarding") return "/home";
   return null;
 });
 
 function syncNavVisibility() {
   const path = router.current() || location.hash.replace(/^#/, "");
+  const signedIn = !!currentUser();
+  const { demo, onboarded } = get().profile;
   const hideOn = path === "/onboarding" || path === "/auth";
-  document.getElementById("nav").hidden = !get().profile.onboarded || hideOn;
+  document.getElementById("nav").hidden = hideOn || !(signedIn || demo) || !onboarded;
 }
 
-buildNav();
-router.start();
-syncNavVisibility();
-window.addEventListener("hashchange", syncNavVisibility);
+async function boot() {
+  buildNav();
+  showLoader("Waking the bear…");
+  try {
+    await initCloud(); // restore session before first route so we never flash /auth
+  } catch { /* offline — demo and cached sessions still work */ }
+  router.start();
+  syncNavVisibility();
+  hideLoader();
+  window.addEventListener("hashchange", syncNavVisibility);
 
-// Cloud session boot (no-op until Supabase is configured)
-initCloud().catch(() => {});
-onAuthChange(() => {
-  // Re-render auth-sensitive screens when session changes
-  const p = router.current();
-  if (p === "/groups" || p === "/profile" || p === "/auth" || p?.startsWith("/group/")) {
-    router.refresh();
-  }
-});
+  onAuthChange(() => {
+    const p = router.current();
+    if (!currentUser() && !get().profile.demo) {
+      router.navigate("/auth");
+      return;
+    }
+    if (p === "/groups" || p === "/profile" || p === "/auth" || p === "/shop" || p?.startsWith("/group/")) {
+      router.refresh();
+    }
+    syncNavVisibility();
+  });
+}
+
+boot();
 
 // Service worker (relative path — site may live under a subpath)
 if ("serviceWorker" in navigator) {

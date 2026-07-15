@@ -371,6 +371,133 @@ create policy "users delete own avatar"
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ============================================================
+-- V3: POINTS + SHOP
+-- Bear Points live server-side so the shop can't be cheated and
+-- cosmetics (flairs, tags, name effects) are visible to friends.
+-- ============================================================
+
+alter table public.profiles add column if not exists points int not null default 0;
+alter table public.profiles add column if not exists lifetime_points int not null default 0;
+alter table public.profiles add column if not exists equipped jsonb not null default '{}';
+
+-- Item ids + prices only; the visuals live in the client catalog (js/data/shop.js).
+create table if not exists public.shop_items (
+  id text primary key,
+  price int not null check (price > 0)
+);
+
+insert into public.shop_items (id, price) values
+  ('flair-mint', 150), ('flair-sunset', 250), ('flair-ocean', 250),
+  ('flair-night', 300), ('flair-lava', 400), ('flair-rainbow', 500),
+  ('flair-aurora', 550), ('flair-gold', 600),
+  ('tag-penny', 100), ('tag-coupon', 150), ('tag-machine', 200),
+  ('tag-stacking', 200), ('tag-bse', 250), ('tag-slayer', 300),
+  ('tag-millionaire', 350), ('tag-ceo', 400),
+  ('fx-shimmer', 300), ('fx-wave', 450), ('fx-gold', 500),
+  ('fx-rainbow', 600), ('fx-sparkle', 700), ('fx-frost', 900)
+on conflict (id) do update set price = excluded.price;
+
+create table if not exists public.user_items (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  item_id text not null references public.shop_items (id),
+  purchased_at timestamptz not null default now(),
+  primary key (user_id, item_id)
+);
+
+alter table public.shop_items enable row level security;
+alter table public.user_items enable row level security;
+
+drop policy if exists "shop items are readable" on public.shop_items;
+create policy "shop items are readable"
+  on public.shop_items for select to authenticated using (true);
+
+drop policy if exists "users read own items" on public.user_items;
+create policy "users read own items"
+  on public.user_items for select to authenticated using (auth.uid() = user_id);
+-- purchases happen only through buy_item (security definer)
+
+-- Earn points, with abuse caps: 1–300 per call, max one call per 3 seconds.
+create or replace function public.earn_points(p_amount int, p_reason text)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_last timestamptz;
+  v_points int;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  if p_amount < 1 or p_amount > 300 then raise exception 'bad_amount'; end if;
+
+  select updated_at into v_last from profiles where id = auth.uid();
+  if v_last is not null and v_last > now() - interval '3 seconds' then
+    raise exception 'too_fast';
+  end if;
+
+  update profiles
+     set points = points + p_amount,
+         lifetime_points = lifetime_points + p_amount,
+         updated_at = now()
+   where id = auth.uid()
+   returning points into v_points;
+
+  return json_build_object('points', v_points);
+end $$;
+
+-- Buy a shop item: price comes from shop_items, never from the client.
+create or replace function public.buy_item(p_item_id text)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_price int;
+  v_points int;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  select price into v_price from shop_items where id = p_item_id;
+  if not found then return json_build_object('error', 'no_such_item'); end if;
+
+  if exists (select 1 from user_items where user_id = auth.uid() and item_id = p_item_id) then
+    return json_build_object('error', 'already_owned');
+  end if;
+
+  select points into v_points from profiles where id = auth.uid() for update;
+  if v_points < v_price then
+    return json_build_object('error', 'not_enough_points', 'points', v_points, 'price', v_price);
+  end if;
+
+  update profiles set points = points - v_price where id = auth.uid();
+  insert into user_items (user_id, item_id) values (auth.uid(), p_item_id);
+
+  return json_build_object('points', v_points - v_price);
+end $$;
+
+-- Equip an owned item into a slot (flair | tag | effect), or null to unequip.
+create or replace function public.equip_item(p_slot text, p_item_id text)
+returns json language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  if p_slot not in ('flair', 'tag', 'effect') then raise exception 'bad_slot'; end if;
+
+  if p_item_id is not null and not exists (
+    select 1 from user_items where user_id = auth.uid() and item_id = p_item_id
+  ) then
+    return json_build_object('error', 'not_owned');
+  end if;
+
+  update profiles
+     set equipped = case
+       when p_item_id is null then equipped - p_slot
+       else jsonb_set(equipped, array[p_slot], to_jsonb(p_item_id))
+     end
+   where id = auth.uid();
+
+  return json_build_object('ok', true);
+end $$;
+
+grant select on public.shop_items to authenticated;
+grant select on public.user_items to authenticated;
+grant execute on function public.earn_points(int, text) to authenticated;
+grant execute on function public.buy_item(text) to authenticated;
+grant execute on function public.equip_item(text, text) to authenticated;
+
+-- ============================================================
 -- Force PostgREST to reload its schema cache immediately, so new
 -- foreign keys (and other relationship changes) are visible to the API
 -- right away rather than waiting for its own periodic refresh.

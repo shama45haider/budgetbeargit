@@ -36,7 +36,7 @@ export function goalStats(goal) {
     nextAction = "Goal complete. Consider starting your next one.";
   } else if (risk === "high") {
     nextAction = months
-      ? `Needs ${money(requiredMonthly)}/mo — more than your current capacity. Extend the deadline or trim flexible spending.`
+      ? `Needs ${money(requiredMonthly)}/mo — more than you can put away right now. Push the date back or spend a little less on fun money.`
       : "Set a deadline so Budget Bear can pace this goal for you.";
   } else if (requiredMonthly) {
     const perWeek = requiredMonthly / 4.345;
@@ -70,6 +70,6 @@ export function etaLabel(etaMonths) {
 export const RISK_LABEL = {
   none: { text: "Complete", cls: "t-pos" },
   low: { text: "On track", cls: "t-pos" },
-  medium: { text: "Tight", cls: "" },
+  medium: { text: "Cutting it close", cls: "" },
   high: { text: "At risk", cls: "t-neg" },
 };

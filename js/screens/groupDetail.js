@@ -9,6 +9,7 @@ import { showAchievement } from "../ui/achievement.js";
 import { GROUP_ACHIEVEMENTS, groupAchievementById, goalTarget, dailyTip } from "../data/groupExtras.js";
 import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
 import { avatarHTML, openShareSheet } from "./groups.js";
+import { flairStyle, effectClass, tagHTML, levelFor } from "../data/shop.js";
 import { awardContribution } from "../engine/points.js";
 import { navigate } from "../router.js";
 import { authNext } from "./auth.js";
@@ -176,14 +177,19 @@ function memberRow(m, index, group, myId) {
   const isMe = m.userId === myId;
   const rank = index + 1;
   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `<span class="rank-num">${rank}</span>`;
+  const flair = flairStyle(m.equipped);
+  const fx = effectClass(m.equipped);
+  const lvl = levelFor(m.lifetimePoints);
   return `
   <div class="card member-row ${isMe ? "me" : ""}" data-member="${m.userId}" style="--accent:${esc(m.accent)}">
     <div class="row">
       <div class="rank">${medal}</div>
-      ${avatarHTML(m, 40)}
+      ${flair ? `<span class="flair-ring" style="${flair}">${avatarHTML(m, 35)}</span>` : avatarHTML(m, 40)}
       <div class="grow" style="min-width:0">
         <div class="row" style="gap:6px">
-          <span class="member-name">${esc(m.name)}${isMe ? ' <span class="you-tag">you</span>' : ""}</span>
+          <span class="member-name ${fx}">${esc(m.name)}</span>${isMe ? '<span class="you-tag">you</span>' : ""}
+          ${tagHTML(m.equipped)}
+          <span class="level-chip">Lv ${lvl.level}</span>
           ${m.statusEmoji || m.statusText ? `<span class="member-status">${esc(m.statusEmoji)} ${esc(m.statusText)}</span>` : ""}
         </div>
         <div class="member-bar"><i style="width:${p}%"></i></div>

@@ -238,7 +238,7 @@ function renderStep(view) {
       </div>
       <div class="wizard-summary-card total">
         <div class="row-item"><span>Monthly income</span><strong class="t-num">${money(answers.income)}</strong></div>
-        <div class="row-item"><span>Unallocated</span><strong class="t-num">${money(plan.free)}</strong></div>
+        <div class="row-item"><span>Left over each month</span><strong class="t-num">${money(plan.free)}</strong></div>
       </div>
       ${plan.goal ? `<div class="wizard-summary-card"><div class="row-item"><span>${plan.goal.icon} ${esc(plan.goal.name)} goal</span><strong class="t-num">${money(plan.goal.target)} by ${new Date(plan.goal.deadline).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</strong></div></div>` : ""}
     `;

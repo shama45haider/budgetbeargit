@@ -9,6 +9,7 @@ import { GOAL_TEMPLATES } from "../data/categories.js";
 import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
 import { navigate, refresh } from "../router.js";
 import { authNext } from "./auth.js";
+import { demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
 
 export function renderGroups(view) {
   if (!currentUser()) {
@@ -40,6 +41,7 @@ export function renderGroups(view) {
 function renderSignedOut(view) {
   view.innerHTML = `
   <div class="screen">
+    ${demoBannerHTML()}
     <header class="screen-header"><h1>Groups</h1></header>
     <div class="empty-state" style="padding-top:40px">
       <img src="assets/bears/excitedbear.png" alt="">
@@ -71,6 +73,7 @@ function renderSignedOut(view) {
     authNext("/groups");
     navigate("/auth");
   });
+  bindDemoBanner(view);
 }
 
 async function loadGroups(view) {

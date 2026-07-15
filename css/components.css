@@ -487,3 +487,90 @@ button.list-row:active { background: var(--off-white); }
   font-weight: var(--fw-semibold);
 }
 
+/* ------- App loader ------- */
+
+.app-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--off-white);
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out);
+}
+.app-loader.open { opacity: 1; }
+.app-loader img {
+  animation: loader-breathe 1.8s var(--ease-inout) infinite;
+  will-change: transform;
+}
+.app-loader .loader-glow {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--green-50) 0%, rgba(237, 248, 237, 0) 70%);
+  animation: loader-glow 1.8s var(--ease-inout) infinite;
+  will-change: transform, opacity;
+}
+.app-loader .loader-text {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  font-weight: var(--fw-medium);
+}
+@keyframes loader-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+@keyframes loader-glow {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+/* ------- Info dots (tap to learn) ------- */
+
+.info-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--green-50);
+  color: var(--green-700);
+  font-size: 11px;
+  font-weight: var(--fw-bold);
+  font-style: normal;
+  vertical-align: 2px;
+  margin-left: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.info-dot:active { transform: scale(0.9); }
+
+/* ------- Demo banner ------- */
+
+.demo-banner {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin: calc(-1 * var(--sp-5)) calc(-1 * var(--sp-4)) var(--sp-4);
+  background: var(--green-800);
+  color: var(--white);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-medium);
+}
+.demo-banner button {
+  color: var(--white);
+  text-decoration: underline;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-13);
+}
+

@@ -7,6 +7,7 @@ import { openSheet, toast, confirmSheet, animateNumbers } from "../ui/components
 import { GOAL_TEMPLATES } from "../data/categories.js";
 import { awardContribution, checkAchievements } from "../engine/points.js";
 import { refresh } from "../router.js";
+import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
 
 export function renderGoals(view) {
   const s = get();
@@ -16,6 +17,7 @@ export function renderGoals(view) {
 
   view.innerHTML = `
   <div class="screen">
+    ${demoBannerHTML()}
     <header class="screen-header">
       <h1>Goals</h1>
       <span class="sub t-num">${money(totalSaved)} saved</span>
@@ -50,6 +52,8 @@ export function renderGoals(view) {
   </div>`;
 
   animateNumbers(view);
+  bindInfoDots(view);
+  bindDemoBanner(view);
   view.querySelector("#btn-new-goal").addEventListener("click", openNewGoal);
   view.querySelectorAll("[data-contribute]").forEach((b) =>
     b.addEventListener("click", () => openContribute(b.dataset.contribute)));
@@ -81,7 +85,7 @@ function goalCard(g) {
       <div class="progress"><i style="width:${p}%"></i></div>
       <div class="goal-stats">
         <div><small>Est. finish</small><strong>${etaLabel(st.etaMonths)}</strong></div>
-        <div><small>Needed / mo</small><strong class="t-num">${st.requiredMonthly ? money(st.requiredMonthly) : "—"}</strong></div>
+        <div><small>Needed / mo ${infoDot("needed-monthly")}</small><strong class="t-num">${st.requiredMonthly ? money(st.requiredMonthly) : "—"}</strong></div>
         <div><small>Remaining</small><strong class="t-num">${money(st.remaining)}</strong></div>
       </div>
       <div class="t-small t-secondary" style="margin:10px 0 12px">${esc(st.nextAction)}</div>
