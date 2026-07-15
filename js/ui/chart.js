@@ -1,12 +1,14 @@
-/* Budget Bear — hand-rolled SVG charts. Brand greens only; red for negatives. */
+/* Budget Bear — hand-rolled SVG charts.
+   Colors are CSS variables so charts repaint with purchased themes;
+   red stays reserved for negatives. */
 
 const C = {
-  forest: "#3E7A4D",
-  sage: "#7FC96A",
-  mint: "#EDF8ED",
-  gray: "#E2E8E2",
-  text2: "#6B7280",
-  red: "#D9534F",
+  forest: "var(--green-600)",
+  sage: "var(--green-400)",
+  mint: "var(--green-50)",
+  gray: "var(--border)",
+  text2: "var(--text-2)",
+  red: "var(--error)",
 };
 
 /** Sparkline: values[], small inline trend. */

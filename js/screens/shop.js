@@ -9,6 +9,7 @@ import * as api from "../cloud/api.js";
 import { SHOP_ITEMS, shopItem, levelFor, flairStyle, effectClass, tagHTML } from "../data/shop.js";
 import { openSheet, toast, animateNumbers } from "../ui/components.js";
 import { showLoader, hideLoader } from "../ui/loader.js";
+import { applyTheme, previewTheme } from "../ui/theme.js";
 import { navigate, refresh } from "../router.js";
 import { authNext } from "./auth.js";
 import { infoDot, bindInfoDots } from "../data/glossary.js";
@@ -78,6 +79,7 @@ function paint(view, profile) {
       <div class="progress" style="margin-top:8px"><i style="width:${Math.round(lvl.progress * 100)}%"></i></div>
     </div>
 
+    ${section("App Themes", "Repaint the whole app — new colors, new mood, living effects", "theme", equipped)}
     ${section("Flairs", "Colorful banner + avatar ring your friends see on leaderboards", "flair", equipped)}
     ${section("Slogan tags", "A little badge that shows off next to your name", "tag", equipped)}
     ${section("Name effects", "Make your username move, shine, and sparkle", "effect", equipped)}
@@ -125,9 +127,10 @@ function section(title, subtitle, type, equipped) {
         const isOwned = owned?.has(item.id);
         const isEquipped = equipped[type] === item.id;
         return `
-        <button class="shop-tile ${isEquipped ? "equipped" : ""}" data-item="${item.id}">
+        <button class="shop-tile ${isEquipped ? "equipped" : ""} ${item.type === "theme" ? "theme-tile" : ""}" data-item="${item.id}">
           ${swatch(item)}
           <small>${esc(item.name)}</small>
+          ${item.tagline ? `<span class="theme-tagline">${esc(item.tagline)}</span>` : ""}
           ${isEquipped ? `<span class="shop-state on">Equipped</span>`
             : isOwned ? `<span class="shop-state">Owned</span>`
             : `<span class="shop-price">${item.price} pts</span>`}
@@ -137,6 +140,10 @@ function section(title, subtitle, type, equipped) {
 }
 
 function swatch(item) {
+  if (item.type === "theme") {
+    return `<span class="theme-swatch" style="--mock-bg:${item.mock.bg};--mock-surface:${item.mock.surface};--mock-accent:${item.mock.accent}">
+      <span class="mock-dot"></span></span>`;
+  }
   if (item.type === "flair") {
     return `<span class="shop-swatch" style="background:${item.css}"></span>`;
   }
@@ -160,7 +167,10 @@ function openItem(itemId, profile, view) {
       ${item.type === "flair" ? `<span class="shop-swatch" style="background:${item.css};width:180px;height:56px"></span>` : ""}
       ${item.type === "tag" ? `<span class="user-tag" style="--tag:${item.color};font-size:var(--fs-14);padding:6px 14px">${esc(item.name)}</span>` : ""}
       ${item.type === "effect" ? `<span class="shop-fx ${item.cls}" style="font-size:var(--fs-22)">${esc(profile.display_name)}</span>` : ""}
+      ${item.type === "theme" ? `<span class="theme-swatch" style="width:200px;--mock-bg:${item.mock.bg};--mock-surface:${item.mock.surface};--mock-accent:${item.mock.accent}"><span class="mock-dot"></span></span>` : ""}
     </div>
+    ${item.type === "theme" ? `<p class="t-small t-secondary" style="text-align:center;margin:-6px 0 14px">${esc(item.tagline)}</p>
+      <button class="btn btn-secondary btn-block" id="shop-try" style="margin-bottom:8px">Try it for 5 seconds</button>` : ""}
     ${isOwned ? `
       <button class="btn ${isEquipped ? "btn-secondary" : "btn-primary"} btn-block" id="shop-equip">
         ${isEquipped ? "Take it off" : "Wear it"}
@@ -172,6 +182,12 @@ function openItem(itemId, profile, view) {
         You have ${profile.points || 0} points. Daily check-ins are the fastest way to earn more.</p>`}`}
   `, {
     onOpen(sheet, close) {
+      sheet.querySelector("#shop-try")?.addEventListener("click", () => {
+        close();
+        toast(`Previewing ${item.name}…`);
+        const revert = previewTheme(item.id);
+        setTimeout(revert, 5000);
+      });
       sheet.querySelector("#shop-buy")?.addEventListener("click", async () => {
         close();
         showLoader("Wrapping it up…");
@@ -184,6 +200,7 @@ function openItem(itemId, profile, view) {
           // Auto-equip new purchases — buying and not seeing it feels broken.
           await api.equipItem(item.type, item.id);
           await loadMyProfile();
+          if (item.type === "theme") applyTheme(item.id);
           hideLoader();
           toast(`${item.name} is yours — equipped!`);
           refresh();
@@ -197,6 +214,7 @@ function openItem(itemId, profile, view) {
         try {
           await api.equipItem(item.type, isEquipped ? null : item.id);
           await loadMyProfile();
+          if (item.type === "theme") applyTheme(isEquipped ? null : item.id);
           toast(isEquipped ? "Taken off" : "Looking good");
           refresh();
         } catch (err) {
@@ -216,11 +234,11 @@ function paintBrowseOnly(view) {
       <span>✨</span>
       <div><strong>Window shopping.</strong> Create a free account to earn Bear Points and unlock these looks.</div>
     </div>
-    ${["flair", "tag", "effect"].map((type) => `
-      <h2 class="section-title">${type === "flair" ? "Flairs" : type === "tag" ? "Slogan tags" : "Name effects"}</h2>
+    ${["theme", "flair", "tag", "effect"].map((type) => `
+      <h2 class="section-title">${type === "theme" ? "App Themes" : type === "flair" ? "Flairs" : type === "tag" ? "Slogan tags" : "Name effects"}</h2>
       <div class="shop-grid">
         ${SHOP_ITEMS.filter((i) => i.type === type).map((item) => `
-          <div class="shop-tile locked-tile">
+          <div class="shop-tile locked-tile ${item.type === "theme" ? "theme-tile" : ""}">
             ${swatch(item)}
             <small>${esc(item.name)}</small>
             <span class="shop-price">${item.price} pts</span>

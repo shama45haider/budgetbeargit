@@ -394,7 +394,9 @@ insert into public.shop_items (id, price) values
   ('tag-stacking', 200), ('tag-bse', 250), ('tag-slayer', 300),
   ('tag-millionaire', 350), ('tag-ceo', 400),
   ('fx-shimmer', 300), ('fx-wave', 450), ('fx-gold', 500),
-  ('fx-rainbow', 600), ('fx-sparkle', 700), ('fx-frost', 900)
+  ('fx-rainbow', 600), ('fx-sparkle', 700), ('fx-frost', 900),
+  ('theme-midnight', 800), ('theme-sakura', 800),
+  ('theme-ocean', 800), ('theme-royal', 1500)
 on conflict (id) do update set price = excluded.price;
 
 create table if not exists public.user_items (
@@ -468,12 +470,12 @@ begin
   return json_build_object('points', v_points - v_price);
 end $$;
 
--- Equip an owned item into a slot (flair | tag | effect), or null to unequip.
+-- Equip an owned item into a slot (flair | tag | effect | theme), or null to unequip.
 create or replace function public.equip_item(p_slot text, p_item_id text)
 returns json language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
-  if p_slot not in ('flair', 'tag', 'effect') then raise exception 'bad_slot'; end if;
+  if p_slot not in ('flair', 'tag', 'effect', 'theme') then raise exception 'bad_slot'; end if;
 
   if p_item_id is not null and not exists (
     select 1 from user_items where user_id = auth.uid() and item_id = p_item_id

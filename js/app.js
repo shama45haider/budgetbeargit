@@ -13,8 +13,9 @@ import { renderAuth } from "./screens/auth.js";
 import { renderGroups, renderJoin } from "./screens/groups.js";
 import { renderGroupDetail } from "./screens/groupDetail.js";
 import { renderShop } from "./screens/shop.js";
-import { initCloud, onAuthChange, currentUser } from "./cloud/client.js";
+import { initCloud, onAuthChange, currentUser, myProfile } from "./cloud/client.js";
 import { showLoader, hideLoader } from "./ui/loader.js";
+import { applyCachedTheme, applyTheme } from "./ui/theme.js";
 
 const icons = {
   home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-5.5a2 2 0 0 1 4 0V21h3.5a1 1 0 0 0 1-1V9.5"/></svg>`,
@@ -82,6 +83,7 @@ function syncNavVisibility() {
 }
 
 async function boot() {
+  applyCachedTheme(); // paint the purchased theme instantly, before session restore
   buildNav();
   showLoader("Waking the bear…");
   try {
@@ -95,9 +97,13 @@ async function boot() {
   onAuthChange(() => {
     const p = router.current();
     if (!currentUser() && !get().profile.demo) {
+      applyTheme(null); // themes are account cosmetics — default look when signed out
       router.navigate("/auth");
       return;
     }
+    // Reconcile with the account's equipped theme (covers new device / other tab)
+    const equippedTheme = myProfile()?.equipped?.theme || null;
+    applyTheme(equippedTheme);
     if (p === "/groups" || p === "/profile" || p === "/auth" || p === "/shop" || p?.startsWith("/group/")) {
       router.refresh();
     }

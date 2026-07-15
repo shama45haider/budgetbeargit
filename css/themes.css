@@ -1,0 +1,364 @@
+/* Budget Bear — purchasable app themes.
+   A theme = data-theme attribute on <html> overriding the design tokens,
+   plus an ambient effect layer (#theme-fx) with GPU-friendly animations
+   (transform/opacity only). Everything respects prefers-reduced-motion. */
+
+/* ============================================================
+   MIDNIGHT — deep-forest dark mode with drifting fireflies
+   ============================================================ */
+
+[data-theme="theme-midnight"] {
+  --green-900: #0b1f12;
+  --green-800: #2e6b3f;
+  --green-700: #3d8451;
+  --green-600: #4c9c62;
+  --green-500: #5fb276;
+  --green-400: #7FC96A;
+  --green-100: #24382a;
+  --green-50:  #1d2a20;
+
+  --off-white: #0e1411;
+  --border: #263029;
+  --border-strong: #33403a;
+  --text: #e9efe9;
+  --text-2: #a3b0a6;
+  --text-3: #6f7d73;
+
+  --bg: #0e1411;
+  --surface: #171f19;
+  --tint: #1d2a20;
+
+  --error-bg: #331d1c;
+  --warning-bg: #2e2416;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 8px 28px rgba(0, 0, 0, 0.6);
+}
+
+/* ============================================================
+   SAKURA DREAM — soft pink with falling petals
+   ============================================================ */
+
+[data-theme="theme-sakura"] {
+  --green-900: #6e2247;
+  --green-800: #b03a70;
+  --green-700: #c4477f;
+  --green-600: #d6568f;
+  --green-500: #e06ba0;
+  --green-400: #f2a1c5;
+  --green-100: #fbd9e8;
+  --green-50:  #fbe9f1;
+
+  --off-white: #fdf3f7;
+  --border: #f4d7e3;
+  --border-strong: #eabfd2;
+  --text: #33202b;
+  --text-2: #8a6b7a;
+  --text-3: #b393a2;
+
+  --bg: #fdf3f7;
+  --surface: #ffffff;
+  --tint: #fbe9f1;
+
+  --shadow-1: 0 1px 2px rgba(110, 34, 71, 0.06);
+  --shadow-2: 0 2px 8px rgba(110, 34, 71, 0.08);
+  --shadow-3: 0 8px 28px rgba(110, 34, 71, 0.14);
+}
+
+/* ============================================================
+   DEEP OCEAN — cool blue with rising bubbles
+   ============================================================ */
+
+[data-theme="theme-ocean"] {
+  --green-900: #0d2c3e;
+  --green-800: #1f5f83;
+  --green-700: #29719a;
+  --green-600: #2f7fa8;
+  --green-500: #3f93bd;
+  --green-400: #6fc2e3;
+  --green-100: #d3ecf7;
+  --green-50:  #e8f4fa;
+
+  --off-white: #f2f8fb;
+  --border: #d8e6ee;
+  --border-strong: #bfd6e2;
+  --text: #16222b;
+  --text-2: #5d7382;
+  --text-3: #8fa5b2;
+
+  --bg: #f2f8fb;
+  --surface: #ffffff;
+  --tint: #e8f4fa;
+
+  --shadow-1: 0 1px 2px rgba(13, 44, 62, 0.06);
+  --shadow-2: 0 2px 8px rgba(13, 44, 62, 0.08);
+  --shadow-3: 0 8px 28px rgba(13, 44, 62, 0.14);
+}
+
+/* ============================================================
+   ROYAL GOLD — black-and-gold luxury with a shimmer sweep
+   ============================================================ */
+
+[data-theme="theme-royal"] {
+  --green-900: #171408;
+  --green-800: #a3831c;
+  --green-700: #b5921f;
+  --green-600: #c9a227;
+  --green-500: #d9b53a;
+  --green-400: #e7cb62;
+  --green-100: #3a3316;
+  --green-50:  #2a2512;
+
+  --off-white: #14120c;
+  --border: #37321f;
+  --border-strong: #4a4229;
+  --text: #f3ecd8;
+  --text-2: #b3a985;
+  --text-3: #7d7557;
+
+  --bg: #14120c;
+  --surface: #1e1b12;
+  --tint: #2a2512;
+
+  --error-bg: #33201c;
+  --warning-bg: #2e2410;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 8px 28px rgba(0, 0, 0, 0.65);
+}
+
+/* Gold buttons read better with dark text */
+[data-theme="theme-royal"] .btn-primary { color: #14120c; }
+[data-theme="theme-royal"] .toast { color: #14120c; background: var(--green-500); }
+
+/* ============================================================
+   Shared dark-theme component fixes (hardcoded light colors)
+   ============================================================ */
+
+[data-theme="theme-midnight"] body,
+[data-theme="theme-royal"] body { background: var(--bg); }
+
+@media (min-width: 480px) {
+  [data-theme="theme-midnight"] body { background: #0a0f0c; }
+  [data-theme="theme-royal"] body { background: #0f0d08; }
+  [data-theme="theme-sakura"] body { background: #f8e7ee; }
+  [data-theme="theme-ocean"] body { background: #e8f1f7; }
+}
+
+[data-theme="theme-midnight"] .bottom-nav,
+[data-theme="theme-royal"] .bottom-nav {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+
+[data-theme="theme-midnight"] .segmented,
+[data-theme="theme-royal"] .segmented { background: var(--green-50); }
+
+[data-theme="theme-midnight"] .skeleton,
+[data-theme="theme-royal"] .skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--tint) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+}
+
+[data-theme="theme-midnight"] .callout.warn,
+[data-theme="theme-royal"] .callout.warn { border-color: #4a3d1e; }
+[data-theme="theme-midnight"] .callout.danger,
+[data-theme="theme-royal"] .callout.danger { border-color: #4d2b28; }
+
+[data-theme="theme-midnight"] .coach-verdict.v-caution,
+[data-theme="theme-royal"] .coach-verdict.v-caution { background: var(--warning-bg); color: #d9a441; }
+[data-theme="theme-midnight"] .coach-verdict.v-no,
+[data-theme="theme-royal"] .coach-verdict.v-no { background: var(--error-bg); color: #e07b77; }
+
+[data-theme="theme-midnight"] .accent-dot,
+[data-theme="theme-royal"] .accent-dot { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35); }
+
+[data-theme="theme-midnight"] .user-tag,
+[data-theme="theme-royal"] .user-tag {
+  background: color-mix(in srgb, var(--tag, var(--green-600)) 22%, var(--surface));
+  border-color: color-mix(in srgb, var(--tag, var(--green-600)) 45%, var(--surface));
+  color: color-mix(in srgb, var(--tag, var(--green-600)) 70%, #ffffff);
+}
+
+[data-theme="theme-midnight"] .hero-card,
+[data-theme="theme-royal"] .hero-card {
+  box-shadow: 0 0 24px color-mix(in srgb, var(--green-600) 22%, transparent);
+}
+
+/* Sakura + Ocean small touches */
+[data-theme="theme-sakura"] .hero-card {
+  background: linear-gradient(160deg, #b03a70, #d6568f 90%);
+}
+[data-theme="theme-ocean"] .hero-card {
+  background: linear-gradient(160deg, #1f5f83, #2f7fa8 90%);
+}
+
+/* ============================================================
+   Ambient effect layer
+   ============================================================ */
+
+#theme-fx {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+#theme-fx span {
+  position: absolute;
+  will-change: transform, opacity;
+}
+
+/* --- Midnight: fireflies --- */
+
+[data-theme="theme-midnight"] #theme-fx span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #b9e79a 0%, rgba(127, 201, 106, 0.35) 55%, transparent 75%);
+  animation: firefly-drift var(--dur, 16s) ease-in-out var(--delay, 0s) infinite,
+             firefly-glow 3.2s ease-in-out var(--delay, 0s) infinite;
+  top: var(--y, 50%);
+  left: var(--x, 50%);
+}
+@keyframes firefly-drift {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(28px, -34px); }
+  50%  { transform: translate(-18px, -60px); }
+  75%  { transform: translate(-40px, -22px); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes firefly-glow {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.85; }
+}
+
+/* --- Sakura: falling petals --- */
+
+[data-theme="theme-sakura"] #theme-fx span {
+  width: 12px;
+  height: 10px;
+  background: linear-gradient(135deg, #f8c4dc, #f2a1c5);
+  border-radius: 80% 10% 80% 10%;
+  opacity: 0.7;
+  top: -20px;
+  left: var(--x, 50%);
+  animation: petal-fall var(--dur, 13s) linear var(--delay, 0s) infinite;
+}
+@keyframes petal-fall {
+  0%   { transform: translateY(-4vh) translateX(0) rotate(0deg); opacity: 0; }
+  8%   { opacity: 0.75; }
+  50%  { transform: translateY(52vh) translateX(-30px) rotate(200deg); }
+  92%  { opacity: 0.6; }
+  100% { transform: translateY(108vh) translateX(24px) rotate(390deg); opacity: 0; }
+}
+
+/* --- Ocean: rising bubbles --- */
+
+[data-theme="theme-ocean"] #theme-fx span {
+  width: var(--size, 10px);
+  height: var(--size, 10px);
+  border-radius: 50%;
+  border: 1.5px solid rgba(63, 147, 189, 0.35);
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.7), rgba(111, 194, 227, 0.12));
+  bottom: -20px;
+  left: var(--x, 50%);
+  animation: bubble-rise var(--dur, 14s) ease-in var(--delay, 0s) infinite;
+}
+@keyframes bubble-rise {
+  0%   { transform: translateY(0) translateX(0) scale(0.7); opacity: 0; }
+  10%  { opacity: 0.7; }
+  50%  { transform: translateY(-52vh) translateX(14px) scale(1); }
+  90%  { opacity: 0.5; }
+  100% { transform: translateY(-108vh) translateX(-10px) scale(1.1); opacity: 0; }
+}
+
+/* --- Royal: gold shimmer sweep + sparkle dust --- */
+
+[data-theme="theme-royal"] #theme-fx .fx-sweep {
+  top: 0;
+  left: 0;
+  width: 60vw;
+  height: 100vh;
+  background: linear-gradient(105deg, transparent 20%, rgba(231, 203, 98, 0.05) 45%,
+              rgba(231, 203, 98, 0.12) 50%, rgba(231, 203, 98, 0.05) 55%, transparent 80%);
+  transform: translateX(-80vw) skewX(-12deg);
+  animation: royal-sweep 7.5s ease-in-out infinite;
+}
+@keyframes royal-sweep {
+  0%, 55% { transform: translateX(-90vw) skewX(-12deg); }
+  85%, 100% { transform: translateX(180vw) skewX(-12deg); }
+}
+[data-theme="theme-royal"] #theme-fx .fx-dust {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #e7cb62;
+  top: var(--y, 50%);
+  left: var(--x, 50%);
+  animation: dust-twinkle var(--dur, 4s) ease-in-out var(--delay, 0s) infinite;
+}
+@keyframes dust-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.5) translateY(0); }
+  50% { opacity: 0.8; transform: scale(1.15) translateY(-14px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #theme-fx { display: none; }
+}
+
+/* ============================================================
+   Shop presentation for themes
+   ============================================================ */
+
+.theme-swatch {
+  width: 100%;
+  height: 72px;
+  border-radius: var(--r-md);
+  background: var(--mock-bg);
+  border: 1px solid rgba(127, 127, 127, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+.theme-swatch::before {
+  /* mini "card" */
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  width: 55%;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--mock-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.theme-swatch::after {
+  /* mini accent button */
+  content: "";
+  position: absolute;
+  left: 10px;
+  bottom: 12px;
+  width: 38%;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--mock-accent);
+}
+.theme-swatch .mock-dot {
+  position: absolute;
+  right: 12px;
+  top: 14px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--mock-accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--mock-accent) 60%, transparent);
+}
+
+.shop-tile.theme-tile { grid-column: span 2; align-items: stretch; }
+.shop-tile.theme-tile small { text-align: left; font-size: var(--fs-13); }
+.theme-tagline {
+  font-size: var(--fs-11);
+  color: var(--text-2);
+  text-align: left;
+}

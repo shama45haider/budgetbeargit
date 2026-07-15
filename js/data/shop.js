@@ -38,6 +38,20 @@ export const SHOP_ITEMS = [
   { id: "fx-rainbow", type: "effect", name: "Rainbow Flow",price: 600, cls: "fx-rainbow" },
   { id: "fx-sparkle", type: "effect", name: "Sparkle",     price: 700, cls: "fx-sparkle" },
   { id: "fx-frost",   type: "effect", name: "Frost",       price: 900, cls: "fx-frost" },
+
+  /* ---------- App Themes: repaint the whole app, with ambient effects ---------- */
+  { id: "theme-midnight", type: "theme", name: "Midnight", price: 800,
+    tagline: "Deep-forest dark mode with drifting fireflies",
+    mock: { bg: "#0e1411", surface: "#171f19", accent: "#57a86b", text: "#e9efe9" } },
+  { id: "theme-sakura", type: "theme", name: "Sakura Dream", price: 800,
+    tagline: "Soft pink everything, petals falling as you save",
+    mock: { bg: "#fdf3f7", surface: "#ffffff", accent: "#d6568f", text: "#33202b" } },
+  { id: "theme-ocean", type: "theme", name: "Deep Ocean", price: 800,
+    tagline: "Cool blue calm with bubbles floating up",
+    mock: { bg: "#f2f8fb", surface: "#ffffff", accent: "#2f7fa8", text: "#16222b" } },
+  { id: "theme-royal", type: "theme", name: "Royal Gold", price: 1500,
+    tagline: "Black-and-gold luxury with a golden shimmer",
+    mock: { bg: "#14120c", surface: "#1e1b12", accent: "#c9a227", text: "#f3ecd8" } },
 ];
 
 export function shopItem(id) {
