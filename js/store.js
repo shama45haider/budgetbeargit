@@ -44,21 +44,32 @@ const defaults = () => ({
 let state = load();
 const listeners = new Set();
 
+/** Merge a parsed blob over defaults, section by section, so that every
+    top-level key exists and has the right shape no matter what came in.
+    Screens read `s.achievements.unlocked` etc. directly — a missing or
+    wrong-typed section is an instant TypeError on render. */
+function merge(parsed) {
+  const base = defaults();
+  if (!parsed || typeof parsed !== "object") return base;
+  for (const k of Object.keys(base)) {
+    const incoming = parsed[k];
+    if (incoming === undefined || incoming === null) continue;
+    if (Array.isArray(base[k])) {
+      if (Array.isArray(incoming)) base[k] = incoming;      // never let an object become an array
+    } else if (typeof base[k] === "object") {
+      if (typeof incoming === "object" && !Array.isArray(incoming)) base[k] = { ...base[k], ...incoming };
+    } else {
+      if (typeof incoming === typeof base[k]) base[k] = incoming;
+    }
+  }
+  return base;
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return defaults();
-    const parsed = JSON.parse(raw);
-    // Shallow-merge each top-level section over defaults so new fields appear
-    const base = defaults();
-    for (const k of Object.keys(base)) {
-      if (parsed[k] !== undefined) {
-        base[k] = typeof base[k] === "object" && !Array.isArray(base[k])
-          ? { ...base[k], ...parsed[k] }
-          : parsed[k];
-      }
-    }
-    return base;
+    return merge(JSON.parse(raw));
   } catch {
     return defaults();
   }
@@ -101,7 +112,10 @@ export function importJSON(text) {
   if (!parsed || typeof parsed !== "object" || !parsed.profile) {
     throw new Error("Not a Budget Bear backup file");
   }
-  state = parsed;
+  // Through the same merge as load(): a file with only some sections (or with a
+  // section of the wrong type) used to be stored verbatim, and the very next
+  // render threw on the missing keys — leaving the app bricked until a reload.
+  state = merge(parsed);
   persist();
   for (const l of listeners) l(state);
 }

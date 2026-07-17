@@ -10,7 +10,7 @@ import { SHOP_ITEMS, shopItem, levelFor, flairStyle, effectClass, tagHTML } from
 import { openSheet, toast, animateNumbers } from "../ui/components.js";
 import { showLoader, hideLoader } from "../ui/loader.js";
 import { applyTheme, previewTheme } from "../ui/theme.js";
-import { navigate, refresh } from "../router.js";
+import { navigate, refresh, isCurrent } from "../router.js";
 import { authNext } from "./auth.js";
 import { infoDot, bindInfoDots } from "../data/glossary.js";
 
@@ -46,12 +46,12 @@ export function renderShop(view) {
 
   Promise.all([api.myItems(), loadMyProfile()])
     .then(([items, profile]) => {
-      if (!view.isConnected) return;
+      if (!isCurrent("/shop")) return; // #view is permanent, so isConnected can't tell us this
       owned = new Set(items);
       paint(view, profile);
     })
     .catch(() => {
-      if (!view.isConnected) return;
+      if (!isCurrent("/shop")) return;
       view.querySelector("#shop-body").innerHTML =
         `<div class="callout danger"><span>⚠️</span><div>Couldn't load the shop. Check your connection and try again.</div></div>`;
     });

@@ -615,3 +615,36 @@ button.list-row:active { background: var(--off-white); }
 .switch input:checked + span { background: var(--green-600); }
 .switch input:checked + span::after { transform: translateX(18px); }
 .switch input:focus-visible + span { outline: 2px solid var(--green-600); outline-offset: 2px; }
+
+/* ------- Touch target floor -------
+   Pointer-coarse only, so the desktop layout keeps its tighter proportions.
+   These controls all sat between 17px and 38px, under the ~44px that thumbs
+   reliably hit. Padding (not height) so text stays vertically centred. */
+
+@media (pointer: coarse) {
+  .chip,
+  .btn-sm,
+  .segmented button,
+  .wizard-back,
+  .demo-banner button,
+  .house-ad-x {
+    min-height: 44px;
+  }
+  .accent-dot {
+    /* The swatch keeps its size; the hit area grows around it. */
+    position: relative;
+  }
+  .accent-dot::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+  }
+  .info-dot {
+    position: relative;
+  }
+  .info-dot::after {
+    content: "";
+    position: absolute;
+    inset: -14px;
+  }
+}

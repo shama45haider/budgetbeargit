@@ -7,7 +7,7 @@ import { toast, confirmSheet } from "../ui/components.js";
 import { showLoader, hideLoader } from "../ui/loader.js";
 import { navigate } from "../router.js";
 import { get, update, resetAll } from "../store.js";
-import { buildSeed } from "../data/seed.js";
+import { applyDemoSeed } from "../data/seed.js";
 import { onSignedIn } from "../engine/points.js";
 
 let mode = "signin"; // signin | signup | magic
@@ -36,7 +36,7 @@ function renderCaptcha(view) {
   if (!el) return;
   captchaToken = null;
   ensureTurnstileScript().then(() => {
-    if (!view.isConnected) return;
+    if (!el.isConnected) return; // #view is permanent; its children are not
     captchaWidgetId = window.turnstile.render(el, {
       sitekey: TURNSTILE_SITE_KEY,
       callback: (token) => { captchaToken = token; },
@@ -204,8 +204,7 @@ async function startDemo() {
     if (!ok) return;
   }
   showLoader("Setting up the demo…");
-  const seed = buildSeed();
-  update((st) => Object.assign(st, seed));
+  applyDemoSeed();
   setTimeout(() => { hideLoader(); navigate("/home"); }, 500);
 }
 

@@ -82,6 +82,20 @@ export function esc(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+/** A colour safe to drop inside style="...". esc() is not enough here: it
+    leaves ';' and '(' intact, so a stored value could close one declaration
+    and open another (background:url(...)). Only a literal hex passes. */
+export function escCss(color, fallback = "#3E7A4D") {
+  return /^#[0-9A-Fa-f]{6}$/.test(String(color ?? "")) ? color : fallback;
+}
+
+/** A URL safe for <img src>. Only our own public Storage objects are allowed,
+    so a stored value can't beacon an attacker host on every render. */
+export function escUrl(url) {
+  const s = String(url ?? "");
+  return /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\//i.test(s) ? esc(s) : "";
+}
+
 /** Months between now and an ISO date (fractional, min 0). */
 export function monthsUntil(iso) {
   const now = new Date();

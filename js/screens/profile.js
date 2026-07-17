@@ -2,12 +2,12 @@
    + local points, achievements, settings, and data controls. */
 
 import { get, update, resetAll, exportJSON, importJSON } from "../store.js";
-import { money, esc, shortDate } from "../format.js";
+import { money, esc, escCss, escUrl, shortDate } from "../format.js";
 import { ACHIEVEMENTS } from "../data/achievements.js";
 import { openSheet, toast, confirmSheet, animateNumbers } from "../ui/components.js";
 import { showAchievement } from "../ui/achievement.js";
 import { navigate, refresh } from "../router.js";
-import { currentUser, myProfile, updateProfile, uploadAvatar, signOut, updatePassword, updateEmail, deleteAccount } from "../cloud/client.js";
+import { currentUser, myProfile, updateProfile, uploadAvatar, clearAvatar, signOut, updatePassword, updateEmail, deleteAccount } from "../cloud/client.js";
 import { cloudConfigured, DONATE_URL } from "../cloud/config.js";
 import { redeemCode, friendlyCloudError } from "../cloud/api.js";
 import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
@@ -174,7 +174,7 @@ function identityCard(p) {
   const flair = flairStyle(p.equipped);
   const fx = effectClass(p.equipped);
   return `
-  <section class="id-card" style="--banner:${esc(p.banner_color)};--accent:${esc(p.accent_color)}">
+  <section class="id-card" style="--banner:${escCss(p.banner_color)};--accent:${escCss(p.accent_color)}">
     <div class="id-banner" ${flair ? `style="${flair}"` : ""}></div>
     <div class="id-body">
       <div class="id-avatar-wrap">${bigAvatar(p, 76)}</div>
@@ -197,7 +197,7 @@ function identityCard(p) {
 
 function bigAvatar(p, size) {
   if (p.avatar_url) {
-    return `<img class="avatar" src="${esc(p.avatar_url)}" alt="" width="${size}" height="${size}"
+    return `<img class="avatar" src="${escUrl(p.avatar_url)}" alt="" width="${size}" height="${size}"
       style="width:${size}px;height:${size}px;border:4px solid var(--surface)">`;
   }
   const initial = (p.display_name || "?").trim().charAt(0).toUpperCase();
@@ -223,14 +223,18 @@ function signedOutCard() {
 function openEditProfile(view) {
   const p = myProfile();
   const draft = {
-    display_name: p.display_name,
-    pronouns: p.pronouns,
-    about: p.about,
-    status_emoji: p.status_emoji,
-    status_text: p.status_text,
-    banner_color: p.banner_color,
-    accent_color: p.accent_color,
-    avatar_url: p.avatar_url,
+    // ?? "" throughout: these are NOT NULL DEFAULT '' in the schema, but rows
+    // created before a column was added can still read back null, and every
+    // .trim()/.length below would throw inside onOpen — before a single handler
+    // is bound, leaving a sheet that looks fine and does nothing.
+    display_name: p.display_name ?? "",
+    pronouns: p.pronouns ?? "",
+    about: p.about ?? "",
+    status_emoji: p.status_emoji ?? "",
+    status_text: p.status_text ?? "",
+    banner_color: p.banner_color ?? "#3E7A4D",
+    accent_color: p.accent_color ?? "#3E7A4D",
+    avatar_url: p.avatar_url ?? null,
     // Avatar changes are part of the draft: nothing is uploaded or removed
     // until Save, so closing the sheet discards them like any other field.
     avatarFile: null,
@@ -326,7 +330,10 @@ function openEditProfile(view) {
         btn.disabled = true;
         btn.textContent = "Saving…";
         try {
-          if (draft.avatarFile) await uploadAvatar(draft.avatarFile); // persists avatar_url itself
+          // avatar_url is not client-writable (schema.sql V8) — both paths go
+          // through the set_avatar_url RPC, which pins it to our own bucket.
+          if (draft.avatarFile) await uploadAvatar(draft.avatarFile);
+          else if (draft.avatarRemoved) await clearAvatar();
           await updateProfile({
             display_name: draft.display_name.trim() || "New Bear",
             pronouns: draft.pronouns.trim(),
@@ -335,7 +342,6 @@ function openEditProfile(view) {
             status_text: draft.status_text.trim(),
             banner_color: draft.banner_color,
             accent_color: draft.accent_color,
-            ...(draft.avatarRemoved ? { avatar_url: null } : {}),
           });
           if (previewUrl) URL.revokeObjectURL(previewUrl);
           close();
@@ -409,8 +415,10 @@ function openSupportSheet() {
           if (res.error === "code_used_up") { toast("That code has already been used"); return; }
           if (res.error === "already_redeemed") { toast("You've already redeemed this one"); return; }
           close();
-          toast("Thank you! +200 points, Aurora Crown, and your Supporter tag are yours");
           await import("../cloud/client.js").then((m) => m.loadMyProfile());
+          toast(res.bundle === "premium1m"
+            ? "Premium unlocked — enjoy a month of the bear at full power!"
+            : "Thank you! +200 points, Aurora Crown, and your Supporter tag are yours");
           refresh();
         } catch (err) {
           toast(friendlyCloudError(err, "Couldn't redeem that code"));

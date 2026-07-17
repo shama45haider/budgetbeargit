@@ -1,7 +1,7 @@
 /* Budget Bear — realistic sample data for demo mode.
    Generated relative to today so the demo always feels current. */
 
-import { uid } from "../store.js";
+import { uid, update } from "../store.js";
 
 function iso(d) {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -127,11 +127,11 @@ export function buildSeed() {
       streak: 5,
       bestStreak: 12,
       history: [
-        { id: uid(), reason: "Daily check-in", amount: 10, date: daysAgo(1) },
+        { id: uid(), reason: "Daily check-in", amount: 25, date: daysAgo(1) },
         { id: uid(), reason: "Goal contribution", amount: 25, date: daysAgo(2) },
-        { id: uid(), reason: "Daily check-in", amount: 10, date: daysAgo(2) },
+        { id: uid(), reason: "Daily check-in", amount: 25, date: daysAgo(2) },
         { id: uid(), reason: "Stayed under budget this week", amount: 40, date: daysAgo(4) },
-        { id: uid(), reason: "Daily check-in", amount: 10, date: daysAgo(4) },
+        { id: uid(), reason: "Daily check-in", amount: 25, date: daysAgo(4) },
       ],
     },
     achievements: {
@@ -146,4 +146,19 @@ export function buildSeed() {
     },
     settings: { savingsBuffer: 4390 },
   };
+}
+
+/** Swap the whole dataset over to the demo.
+
+    Object.assign is shallow, so assigning the seed directly REPLACED
+    state.settings with the seed's `{ savingsBuffer }` — silently dropping the
+    user's device preferences (reduce motion, and the one-time points-migration
+    flag). Those aren't demo data, so they survive the swap. */
+export function applyDemoSeed() {
+  const seed = buildSeed();
+  update((st) => {
+    const prefs = { ...st.settings };
+    Object.assign(st, seed);
+    st.settings = { ...prefs, ...seed.settings };
+  });
 }

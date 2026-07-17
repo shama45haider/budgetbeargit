@@ -5,12 +5,13 @@ import { money, esc, moneyShort } from "../format.js";
 import { insights } from "../engine/insights.js";
 import { healthScore } from "../engine/health.js";
 import { weeklyReview } from "../engine/review.js";
-import { project, projectionLabels } from "../engine/forecast.js";
+import { project, projectionLabels, debtStrategies } from "../engine/forecast.js";
 import { lastMonthKeys, spentInMonth, spentThisMonth } from "../engine/metrics.js";
 import { ring, animateNumbers, openSheet } from "../ui/components.js";
 import { bars, lineChart, chartColors } from "../ui/chart.js";
 import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
 import { houseAdHTML, bindHouseAd } from "../ui/houseAd.js";
+import { premiumActive, upsell } from "../ui/premium.js";
 
 const scenarioState = { raise: false, extra: false, purchase: false, payoff: false };
 
@@ -73,6 +74,7 @@ export function renderInsights(view) {
     </div>
 
     <h2 class="section-title">Your money future ${infoDot("timeline")}</h2>
+    ${premiumActive() ? `
     <div class="card">
       <div class="t-small t-secondary" style="margin-bottom:10px">Where your savings could be in a year. Tap a "what if?" to see how it changes.</div>
       <div id="timeline-chart">${timelineChart()}</div>
@@ -84,6 +86,7 @@ export function renderInsights(view) {
       </div>
       <div class="t-small" id="timeline-summary" style="margin-top:10px">${timelineSummary()}</div>
     </div>
+    ${debtPlanCard()}` : premiumTeaser()}
 
     ${houseAdHTML(0)}
   </div>`;
@@ -92,7 +95,12 @@ export function renderInsights(view) {
   bindInfoDots(view);
   bindDemoBanner(view);
   bindHouseAd(view);
-  view.querySelector("#btn-review").addEventListener("click", openWeeklyReview);
+  view.querySelector("#btn-review").addEventListener("click", () => {
+    if (!premiumActive()) { upsell("Weekly review", "A deeper weekly breakdown of wins, watch-outs, and next steps."); return; }
+    openWeeklyReview();
+  });
+  view.querySelector("#ins-premium")?.addEventListener("click", () =>
+    upsell("Deeper insights", "The 12-month forecast, what-if scenarios, debt payoff planner, and weekly review are Premium."));
   view.querySelectorAll("#scenario-chips .chip").forEach((c) =>
     c.addEventListener("click", () => {
       scenarioState[c.dataset.sc] = !scenarioState[c.dataset.sc];
@@ -100,6 +108,49 @@ export function renderInsights(view) {
       view.querySelector("#timeline-chart").innerHTML = timelineChart();
       view.querySelector("#timeline-summary").innerHTML = timelineSummary();
     }));
+}
+
+/** Locked teaser shown to free accounts in place of the forecast/scenarios. */
+function premiumTeaser() {
+  return `
+    <button class="card" id="ins-premium" style="width:100%;text-align:left;border-style:dashed">
+      <div class="row" style="align-items:flex-start">
+        <span style="font-size:22px">✨</span>
+        <div class="grow">
+          <div style="font-weight:var(--fw-semibold)">See your money a year out</div>
+          <div class="t-small t-secondary" style="margin-top:2px">
+            Premium adds a 12-month forecast, what-if scenarios, a debt payoff planner, and the weekly review.</div>
+        </div>
+        <span class="chev">›</span>
+      </div>
+    </button>`;
+}
+
+/** Premium: avalanche vs snowball payoff, using the previously-dormant engine. */
+function debtPlanCard() {
+  const plan = debtStrategies(200);
+  if (!plan) return "";
+  const { avalanche, snowball, extraPerMonth } = plan;
+  const fmtMonths = (m) => m >= 600 ? "60+ yrs" : `${Math.floor(m / 12)}y ${m % 12}m`;
+  const best = avalanche.interestPaid <= snowball.interestPaid ? "avalanche" : "snowball";
+  return `
+    <h2 class="section-title">Debt payoff plan ${infoDot("timeline")}</h2>
+    <div class="card">
+      <div class="t-small t-secondary" style="margin-bottom:12px">
+        With an extra ${money(extraPerMonth)}/mo, here's how two proven strategies compare.</div>
+      <div class="row" style="gap:10px">
+        <div class="card grow ${best === "avalanche" ? "" : ""}" style="padding:12px;${best === "avalanche" ? "border-color:var(--green-600)" : ""}">
+          <div class="card-title">Avalanche${best === "avalanche" ? " · best" : ""}</div>
+          <strong class="t-num" style="font-size:var(--fs-18)">${fmtMonths(avalanche.months)}</strong>
+          <div class="t-small t-secondary">${money(avalanche.interestPaid)} interest · highest rate first</div>
+        </div>
+        <div class="card grow" style="padding:12px;${best === "snowball" ? "border-color:var(--green-600)" : ""}">
+          <div class="card-title">Snowball${best === "snowball" ? " · best" : ""}</div>
+          <strong class="t-num" style="font-size:var(--fs-18)">${fmtMonths(snowball.months)}</strong>
+          <div class="t-small t-secondary">${money(snowball.interestPaid)} interest · smallest first</div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function insightCard(i) {

@@ -72,7 +72,24 @@ export const ACHIEVEMENTS = [
     desc: "You closed a month with spending under plan across the board.",
     bear: "graphbear.png",
     points: 120,
-    check: (s) => !!s.pointsFlags?.underBudgetMonth,
+    // Looks at the last COMPLETE month: every budgeted category at or under its
+    // limit. (This read `s.pointsFlags?.underBudgetMonth` — a key nothing in the
+    // app ever wrote, so the achievement could never unlock while still counting
+    // toward the total, making 100% impossible.)
+    check: (s) => {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - 1);
+      const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const cats = s.budget.categories.filter((c) => c.id !== "savings" && c.limit > 0);
+      if (!cats.length) return false;
+      const monthTx = s.transactions.filter((t) => t.date.slice(0, 7) === mk && t.categoryId !== "savings");
+      if (!monthTx.length) return false; // no activity isn't an achievement
+      return cats.every((c) => {
+        const spent = monthTx.filter((t) => t.categoryId === c.id).reduce((a, t) => a + t.amount, 0);
+        return spent <= c.limit;
+      });
+    },
   },
   {
     id: "tracker-10",

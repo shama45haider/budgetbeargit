@@ -4,10 +4,13 @@ import { get, update, uid } from "../store.js";
 import { money, esc, monthLabel, todayISO, shortDate } from "../format.js";
 import { spentThisMonth, totalBudgetLimit, billsMonthlyTotal } from "../engine/metrics.js";
 import { openSheet, toast, animateNumbers, confirmSheet } from "../ui/components.js";
-import { CATALOG, catInfo } from "../data/categories.js";
+import { CATALOG, catInfo, catIconHTML, catIconText, newCategoryId } from "../data/categories.js";
 import { checkAchievements } from "../engine/points.js";
 import { refresh } from "../router.js";
 import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
+import { premiumActive, upsell } from "../ui/premium.js";
+import { uploadCategoryImage } from "../cloud/client.js";
+import { friendlyCloudError } from "../cloud/api.js";
 
 export function renderBudget(view) {
   const s = get();
@@ -37,7 +40,7 @@ export function renderBudget(view) {
         </div>
         <div style="text-align:right">
           <div class="card-title">Remaining ${infoDot("remaining-budget")}</div>
-          <div class="t-num" style="font-size:var(--fs-20);font-weight:var(--fw-bold)" class="${limit - spent < 0 ? "t-neg" : ""}">${money(Math.max(0, limit - spent))}</div>
+          <div class="t-num ${limit - spent < 0 ? "t-neg" : ""}" style="font-size:var(--fs-20);font-weight:var(--fw-bold)">${money(limit - spent)}</div>
         </div>
       </div>
       <div class="progress ${pctSpent > 100 ? "over" : pctSpent > 85 ? "warn" : ""}" style="margin-top:12px">
@@ -83,7 +86,7 @@ export function renderBudget(view) {
       ${recent.length ? recent.map((t) => {
         const c = catInfo(t.categoryId);
         return `<button class="list-row" data-tx="${t.id}">
-          <div class="icon-bubble">${c.icon}</div>
+          <div class="icon-bubble">${catIconHTML(c)}</div>
           <div class="main"><div class="name">${esc(t.note || c.name)}</div><div class="meta">${c.name} · ${shortDate(t.date)}</div></div>
           <div class="end"><div class="amount t-num">${t.categoryId === "savings" ? `<span class="t-pos">${money(t.amount)}</span>` : "−" + money(t.amount)}</div></div>
         </button>`;
@@ -112,7 +115,7 @@ function categoryCard(c) {
   return `
     <div class="card" style="padding:14px 16px">
       <div class="row">
-        <div class="icon-bubble">${c.icon}</div>
+        <div class="icon-bubble">${catIconHTML(c)}</div>
         <div class="grow">
           <h3 style="font-size:var(--fs-15)">${esc(c.name)}</h3>
           <div class="t-small ${over ? "t-neg" : "t-secondary"}">
@@ -138,7 +141,7 @@ export function openAddTx(presetCat = null) {
     <h2 class="sheet-title">Add expense</h2>
     <div class="cat-grid">
       ${cats.map((c) => `<button class="cat-tile ${presetCat === c.id ? "selected" : ""}" data-cat="${c.id}">
-        <span>${c.icon}</span><small>${esc(c.name)}</small></button>`).join("")}
+        <span>${catIconHTML(c)}</span><small>${esc(c.name)}</small></button>`).join("")}
     </div>
     <form id="tx-form" style="margin-top:16px">
       <div class="amount-input-wrap">
@@ -192,7 +195,7 @@ function openTxDetail(id) {
     <h2 class="sheet-title">${esc(t.note || c.name)}</h2>
     <div class="coach-block">
       <div class="coach-row"><span>Amount</span><strong class="t-num">${money(t.amount)}</strong></div>
-      <div class="coach-row"><span>Category</span><strong>${c.icon} ${esc(c.name)}</strong></div>
+      <div class="coach-row"><span>Category</span><strong>${catIconText(c)} ${esc(c.name)}</strong></div>
       <div class="coach-row"><span>Date</span><strong>${shortDate(t.date)}</strong></div>
     </div>
     <button class="btn btn-danger-ghost btn-block" id="tx-del" style="margin-top:14px">Delete transaction</button>
@@ -215,48 +218,155 @@ function openTxDetail(id) {
 function openEditBudget() {
   const cats = get().budget.categories;
   const available = CATALOG.filter((c) => !cats.some((x) => x.id === c.id));
+  const canImage = premiumActive();
   openSheet(`
     <h2 class="sheet-title">Category budgets</h2>
     <form id="budget-form" class="stack">
       ${cats.map((c) => `
-        <div class="row">
-          <div class="icon-bubble">${c.icon}</div>
-          <div class="grow" style="font-weight:var(--fw-medium);font-size:var(--fs-15)">${esc(c.name)}</div>
-          <div class="amount-input-wrap" style="width:120px">
+        <div class="row" data-cat-row="${c.id}">
+          <button type="button" class="icon-bubble cat-edit-icon" data-edit-icon="${c.id}"
+            aria-label="Change ${esc(c.name)} icon">${catIconHTML(c)}</button>
+          <div class="grow" style="min-width:0">
+            <div style="font-weight:var(--fw-medium);font-size:var(--fs-15);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</div>
+            ${c.custom ? `<button type="button" class="btn-ghost t-small" data-del-cat="${c.id}" style="color:var(--error);padding:0">Remove</button>` : ""}
+          </div>
+          <div class="amount-input-wrap" style="width:110px">
             <span class="currency" style="font-size:var(--fs-15)">$</span>
-            <input class="input" style="min-height:44px;font-size:var(--fs-15)" inputmode="decimal"
+            <input class="input" style="min-height:44px" inputmode="decimal"
               data-cat="${c.id}" value="${c.limit}">
           </div>
         </div>`).join("")}
       ${available.length ? `
         <select class="input" id="add-cat">
-          <option value="">Add a category…</option>
-          ${available.map((c) => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("")}
+          <option value="">Add a standard category…</option>
+          ${available.map((c) => `<option value="${c.id}">${catIconText(c)} ${esc(c.name)}</option>`).join("")}
         </select>` : ""}
+      <button type="button" class="btn btn-secondary btn-block" id="new-cat">＋ Create a category</button>
       <button class="btn btn-primary btn-block" style="margin-top:6px">Save budgets</button>
     </form>
+    <input type="file" id="cat-img-file" accept="image/png,image/jpeg,image/webp" class="visually-hidden">
   `, {
     onOpen(sheet, close) {
+      const persistLimits = () => update((s) => {
+        sheet.querySelectorAll("input[data-cat]").forEach((inp) => {
+          const cat = s.budget.categories.find((c) => c.id === inp.dataset.cat);
+          const v = parseFloat(inp.value.replace(/[^0-9.]/g, ""));
+          if (cat && !isNaN(v) && v >= 0) cat.limit = v;
+        });
+      });
+      const reopen = () => { persistLimits(); close(); openEditBudget(); };
+
       sheet.querySelector("#add-cat")?.addEventListener("change", (e) => {
         const id = e.target.value;
         if (!id) return;
         const info = CATALOG.find((c) => c.id === id);
         update((s) => { s.budget.categories.push({ ...info, limit: 0 }); });
-        close();
-        openEditBudget();
+        reopen();
       });
+
+      sheet.querySelector("#new-cat").addEventListener("click", () => {
+        persistLimits();
+        openCreateCategory(() => { close(); openEditBudget(); });
+      });
+
+      sheet.querySelectorAll("[data-del-cat]").forEach((b) =>
+        b.addEventListener("click", () => {
+          update((s) => { s.budget.categories = s.budget.categories.filter((c) => c.id !== b.dataset.delCat); });
+          reopen();
+        }));
+
+      // Tap a category icon → upload/replace/remove its image (Premium).
+      const fileInput = sheet.querySelector("#cat-img-file");
+      let targetCat = null;
+      sheet.querySelectorAll("[data-edit-icon]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const c = get().budget.categories.find((x) => x.id === b.dataset.editIcon);
+          if (!canImage) { upsell("Custom category images", "Make each category your own with a photo — a Premium touch."); return; }
+          openCategoryImageMenu(c, {
+            pick: () => { targetCat = c.id; fileInput.click(); },
+            removed: reopen,
+          });
+        }));
+
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files[0];
+        fileInput.value = "";
+        if (!file || !targetCat) return;
+        if (file.size > 2 * 1024 * 1024) { toast("Image must be under 2MB"); return; }
+        persistLimits();
+        toast("Uploading…");
+        try {
+          const url = await uploadCategoryImage(targetCat, file);
+          update((s) => { const c = s.budget.categories.find((x) => x.id === targetCat); if (c) c.imageUrl = url; });
+          close();
+          openEditBudget();
+        } catch (err) {
+          toast(friendlyCloudError(err, "Couldn't upload that image"));
+        }
+      });
+
       sheet.querySelector("#budget-form").addEventListener("submit", (e) => {
         e.preventDefault();
-        update((s) => {
-          sheet.querySelectorAll("input[data-cat]").forEach((inp) => {
-            const cat = s.budget.categories.find((c) => c.id === inp.dataset.cat);
-            const v = parseFloat(inp.value.replace(/[^0-9.]/g, ""));
-            if (cat && !isNaN(v) && v >= 0) cat.limit = v;
-          });
-        });
+        persistLimits();
         close();
         toast("Budgets updated");
         refresh();
+      });
+    },
+  });
+}
+
+/** Small action sheet for a category's icon: replace image or remove it. */
+function openCategoryImageMenu(c, { pick, removed }) {
+  openSheet(`
+    <h2 class="sheet-title">${esc(c.name)} icon</h2>
+    <div class="stack">
+      <button class="btn btn-primary btn-block" id="ci-pick">${c.imageUrl ? "Replace image" : "Upload an image"}</button>
+      ${c.imageUrl ? `<button class="btn btn-ghost btn-block" id="ci-remove" style="color:var(--error)">Remove image (back to emoji)</button>` : ""}
+    </div>
+  `, {
+    onOpen(sheet, close) {
+      sheet.querySelector("#ci-pick").addEventListener("click", () => { close(); pick(); });
+      sheet.querySelector("#ci-remove")?.addEventListener("click", () => {
+        update((s) => { const cat = s.budget.categories.find((x) => x.id === c.id); if (cat) delete cat.imageUrl; });
+        close();
+        removed();
+      });
+    },
+  });
+}
+
+/** Create a brand-new custom category (Premium). Name + emoji; an image can be
+    added afterwards from the icon tap in the budget sheet. */
+function openCreateCategory(done) {
+  if (!premiumActive()) { upsell("Custom categories", "Track anything you like with your own categories."); return; }
+  openSheet(`
+    <h2 class="sheet-title">New category</h2>
+    <form id="nc-form" class="stack">
+      <div class="row">
+        <div class="field" style="width:86px"><label class="field-label" for="nc-emoji">Emoji</label>
+          <input class="input" id="nc-emoji" maxlength="8" placeholder="🐶" value="📦" style="text-align:center"></div>
+        <div class="field grow"><label class="field-label" for="nc-name">Name</label>
+          <input class="input" id="nc-name" maxlength="24" placeholder="Dog stuff" required></div>
+      </div>
+      <div class="amount-input-wrap"><span class="currency">$</span>
+        <input class="input" id="nc-limit" inputmode="decimal" placeholder="Monthly budget (optional)"></div>
+      <button class="btn btn-primary btn-block" style="margin-top:6px">Add category</button>
+    </form>
+  `, {
+    onOpen(sheet, close) {
+      sheet.querySelector("#nc-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const name = sheet.querySelector("#nc-name").value.trim();
+        if (!name) return;
+        const emoji = sheet.querySelector("#nc-emoji").value.trim() || "📦";
+        const limit = parseFloat(sheet.querySelector("#nc-limit").value.replace(/[^0-9.]/g, "")) || 0;
+        update((s) => {
+          s.budget.categories.push({ id: newCategoryId(), name, icon: emoji, essential: false, custom: true, limit });
+        });
+        close();
+        toast("Category added");
+        done();
       });
     },
   });

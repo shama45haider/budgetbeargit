@@ -4,7 +4,7 @@
    money-entry flows. When a real ad network is added, this component is
    the mount point. */
 
-import { myProfile, currentUser } from "../cloud/client.js";
+import { currentUser, isPremium } from "../cloud/client.js";
 import { DONATE_URL } from "../cloud/config.js";
 import { navigate } from "../router.js";
 
@@ -12,8 +12,8 @@ const ADS = [
   {
     id: "premium",
     icon: "✨",
-    title: "Budget Bear Premium is coming",
-    body: "No promos, a new theme every month, and a second daily spin.",
+    title: "Do more with Premium",
+    body: "Custom category images, unlimited goals, 100 AI messages a day, and no promos.",
     cta: "See plans",
     go: () => navigate("/plans"),
   },
@@ -41,7 +41,7 @@ function dismissed(id) {
 
 /** HTML for one rotating promo, or "" (premium plan / all dismissed). */
 export function houseAdHTML(slot = 0) {
-  if (myProfile()?.plan === "premium") return "";
+  if (isPremium()) return ""; // no promos for premium — a paid benefit
   const pool = ADS.filter((a) => !dismissed(a.id) && !(a.id === "support" && !DONATE_URL && !currentUser()));
   if (!pool.length) return "";
   const ad = pool[(new Date().getDate() + slot) % pool.length];

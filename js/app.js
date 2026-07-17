@@ -109,7 +109,7 @@ async function boot() {
     // Reconcile with the account's equipped theme (covers new device / other tab)
     const equippedTheme = myProfile()?.equipped?.theme || null;
     applyTheme(equippedTheme);
-    if (p === "/groups" || p === "/profile" || p === "/auth" || p === "/shop" || p?.startsWith("/group/")) {
+    if (p === "/groups" || p === "/profile" || p === "/auth" || p === "/shop" || p === "/plans" || p?.startsWith("/group/")) {
       router.refresh();
     }
     syncNavVisibility();

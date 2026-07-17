@@ -10,7 +10,7 @@ import { cashFlow } from "./metrics.js";
  */
 export function project(months = 12, scenario = {}) {
   const s = get();
-  const { income, expenses, savings } = cashFlow();
+  const { income, expenses } = cashFlow();
   let cushion = s.settings.savingsBuffer || 0;
 
   const debtMonthly = s.debts.reduce((a, d) => a + d.minPayment, 0);
@@ -21,16 +21,28 @@ export function project(months = 12, scenario = {}) {
 
   const monthlyIncome = income * (1 + (scenario.raisePct || 0) / 100);
   const extra = scenario.extraSavings || 0;
+  const payoffExtra = scenario.payoffExtra ?? 200;
 
   const values = [cushion];
   for (let m = 1; m <= months; m++) {
     let net = monthlyIncome - expenses + extra;
-    // Debt payments come out of expenses already if budgeted; model payoff acceleration:
-    if (scenario.payoffDebt && debtBalance > 0) {
-      const payment = Math.min(debtBalance, debtMonthly + (scenario.payoffExtra || 200));
-      debtBalance = Math.max(0, debtBalance * (1 + avgApr / 100 / 12) - payment);
+
+    // Minimum debt payments already sit inside `expenses`. Accelerating payoff
+    // has two effects, and the cushion has to feel both of them — previously
+    // debtBalance was decremented here and then never read, so the scenario
+    // produced a line identical to the baseline.
+    if (scenario.payoffDebt) {
+      if (debtBalance > 0) {
+        // Throwing extra at the debt is money you don't bank this month.
+        const grown = debtBalance * (1 + avgApr / 100 / 12);
+        debtBalance = Math.max(0, grown - (debtMonthly + payoffExtra));
+        net -= payoffExtra;
+      } else {
+        // Debt's gone: the minimum payment is yours to keep from here on.
+        net += debtMonthly;
+      }
     }
-    // savings allocation stays within cushion (it's still your money)
+
     cushion += net;
     if (scenario.purchase && scenario.purchase.month === m) {
       cushion -= scenario.purchase.amount;

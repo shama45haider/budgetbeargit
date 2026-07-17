@@ -72,7 +72,11 @@ export function openSpinWheel() {
   root.appendChild(el);
   requestAnimationFrame(() => el.classList.add("open"));
 
+  let landTimer = null;
   const close = () => {
+    // The 4.2s landing timer outlives the overlay otherwise, and fires refresh()
+    // against whatever screen the user has since navigated to.
+    if (landTimer) { clearTimeout(landTimer); landTimer = null; }
     el.classList.remove("open");
     setTimeout(() => el.remove(), 350);
   };
@@ -99,6 +103,9 @@ export function openSpinWheel() {
     }
 
     markSpunToday();
+    // The prize is already banked server-side; from here the animation is
+    // cosmetic, so "Maybe later" can safely cancel the landing.
+    el.querySelector("#spin-close").disabled = true;
     const idx = segmentFor(result);
     // pointer sits at top: rotate so the winning segment's center lands there
     const target = 5 * 360 + (360 - (idx * 45 + 22.5));
@@ -106,7 +113,9 @@ export function openSpinWheel() {
     wheel.style.transition = "transform 4s cubic-bezier(0.12, 0.8, 0.16, 1)";
     wheel.style.transform = `rotate(${target}deg)`;
 
-    setTimeout(async () => {
+    landTimer = setTimeout(async () => {
+      landTimer = null;
+      el.querySelector("#spin-close").disabled = false;
       const wonItem = result.prize !== "points" ? shopItem(result.prize) : null;
       el.querySelector("#spin-title").textContent = wonItem
         ? `You won ${wonItem.name}!`

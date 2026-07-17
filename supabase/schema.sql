@@ -764,6 +764,521 @@ revoke execute on function public.delete_account() from public, anon;
 grant execute on function public.delete_account() to authenticated;
 
 -- ============================================================
+-- V8: SECURITY HARDENING
+-- ============================================================
+-- Root cause this block fixes: RLS answers "which ROWS may I touch?" It says
+-- nothing about WHICH COLUMNS. The grants above were table-wide, so the
+-- "users update own profile" policy happily allowed
+--   update profiles set points = 9e9, plan = 'premium', ai_msg_count = 0
+-- from the browser console. Every definer RPC below (earn_points, buy_item,
+-- daily_spin, use_ai_message) was decorative — the client could just skip it.
+-- The fix is column-level GRANTs: the client may write only the cosmetic
+-- fields it actually owns; everything else moves behind a definer RPC.
+
+-- ---------- 8.1 profiles: column-level write access ----------
+
+-- updated_at leaves the client's hands (it was also earn_points' rate-limit
+-- clock, so a forged value defeated the throttle). A trigger owns it now.
+create or replace function public.touch_profile()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+
+drop trigger if exists on_profile_update on public.profiles;
+create trigger on_profile_update
+  before update on public.profiles
+  for each row execute function public.touch_profile();
+
+revoke update on public.profiles from authenticated;
+grant update (display_name, banner_color, accent_color,
+              about, pronouns, status_emoji, status_text) on public.profiles to authenticated;
+
+-- Deliberately NOT granted: avatar_url (set_avatar_url), points, lifetime_points,
+-- equipped, plan, plan_expires_at, last_spin_at, spin_date, spins_today,
+-- ai_msg_count, ai_msg_date, ai_last_msg_at, updated_at, and the earn_points
+-- bookkeeping columns. All of those are written only by definer RPCs.
+
+drop policy if exists "users update own profile" on public.profiles;
+create policy "users update own profile"
+  on public.profiles for update to authenticated
+  using (auth.uid() = id) with check (auth.uid() = id);
+
+-- Colour fields land inside style="..." attributes. esc() blocks attribute
+-- breakout but is not a CSS sanitiser (';' and '(' survive), so a forged
+-- value could inject background:url(...) into every group member's view.
+-- Validate at the boundary that actually holds.
+do $$ begin
+  alter table public.profiles add constraint accent_hex check (accent_color ~ '^#[0-9A-Fa-f]{6}$');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.profiles add constraint banner_hex check (banner_color ~ '^#[0-9A-Fa-f]{6}$');
+exception when duplicate_object then null; end $$;
+
+-- avatar_url was an unconstrained text column, i.e. an arbitrary URL rendered
+-- into <img src> for every group member (an IP/timing beacon at minimum).
+-- Only our own Storage bucket is acceptable.
+create or replace function public.set_avatar_url(p_url text)
+returns json language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  if p_url is not null and p_url not like
+     'https://wxnajrkonkcilfilvoyw.supabase.co/storage/v1/object/public/avatars/' || auth.uid()::text || '/%'
+  then
+    return json_build_object('error', 'bad_url');
+  end if;
+  update profiles set avatar_url = p_url where id = auth.uid();
+  return json_build_object('ok', true);
+end $$;
+
+grant execute on function public.set_avatar_url(text) to authenticated;
+
+-- Reading every profile's points/plan/quota counters is broader than the app
+-- needs: it only ever shows people you share a group with.
+--
+-- SECURITY DEFINER for the same reason is_group_member is (see above): a policy
+-- on profiles that reads group_members would otherwise re-enter group_members'
+-- own policy. The definer boundary stops the recursion.
+create or replace function public.shares_group_with(other uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from group_members a
+    join group_members b on a.group_id = b.group_id
+    where a.user_id = auth.uid() and b.user_id = other
+  );
+$$;
+
+grant execute on function public.shares_group_with(uuid) to authenticated;
+
+drop policy if exists "profiles are readable by signed-in users" on public.profiles;
+create policy "profiles are readable by signed-in users"
+  on public.profiles for select to authenticated
+  using (auth.uid() = id or public.shares_group_with(id));
+
+-- ---------- 8.2 group_members: column-level write access ----------
+
+-- Without `with check`, Postgres reuses `using (auth.uid() = user_id)` — a
+-- predicate satisfied regardless of group_id. A member could repoint their own
+-- row at ANY group uuid (they appear in shareable #/group/<id> URLs), and
+-- is_group_member() would then hand them that group's chat, contributions and
+-- member profiles with no invite code. `saved` was writable too, which made the
+-- contribution trigger, the rate guard and the amount ceiling all pointless.
+revoke update on public.group_members from authenticated;
+grant update (accent_color) on public.group_members to authenticated;
+
+drop policy if exists "members update own row" on public.group_members;
+create policy "members update own row"
+  on public.group_members for update to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+do $$ begin
+  alter table public.group_members add constraint gm_accent_hex check (accent_color ~ '^#[0-9A-Fa-f]{6}$');
+exception when duplicate_object then null; end $$;
+
+-- ---------- 8.3 groups.icon: stored XSS ----------
+
+-- icon had no constraint and is rendered raw into innerHTML on the group card,
+-- the group detail header and — worst — the public join screen, which paints
+-- BEFORE the victim joins. `p_icon: '<img src=x onerror=...>'` via the RPC plus
+-- an invite link exfiltrated the Supabase session (access + refresh token) from
+-- localStorage: full account takeover of everyone who opened the link. The
+-- client escapes it now too; this is the half that a console call can't skip.
+do $$ begin
+  alter table public.groups add constraint icon_len check (char_length(icon) between 1 and 8);
+exception when duplicate_object then null; end $$;
+
+-- ---------- 8.4 earn_points: the amount came from the client ----------
+
+-- Old shape: earn_points(p_amount int, ...) with 1..300 allowed and a 3s
+-- throttle — a setInterval yielded ~8.6M points/day, so the shop economy was
+-- decorative. The server now decides the amount.
+--
+-- Honest limitation: check-ins, achievements and goal contributions all happen
+-- against on-device state, so the server cannot independently confirm one
+-- occurred. Two classes of reason, treated differently:
+--   * verified   (daily_checkin, achievement) — amount and idempotency are
+--                 entirely server-owned, so these cannot be farmed at all.
+--   * declared   (goal_contribution, migration) — unverifiable, so the amount
+--                 is clamped and a daily ceiling bounds a forged claim to about
+--                 what an honest heavy user earns in a day.
+
+alter table public.profiles add column if not exists last_earn_at timestamptz;
+alter table public.profiles add column if not exists checkin_date date;
+alter table public.profiles add column if not exists checkin_streak int not null default 0;
+alter table public.profiles add column if not exists best_streak int not null default 0;
+alter table public.profiles add column if not exists earn_date date;
+alter table public.profiles add column if not exists earned_today int not null default 0;
+alter table public.profiles add column if not exists migrated boolean not null default false;
+
+-- Mirrors the points in js/data/achievements.js. The client proposes an id;
+-- the server decides what it's worth and whether it was already paid out.
+create table if not exists public.achievement_points (
+  id text primary key,
+  points int not null check (points >= 0)
+);
+insert into public.achievement_points (id, points) values
+  ('first-plan', 50), ('first-goal', 40), ('first-100', 60), ('first-1000', 150),
+  ('goal-complete', 200), ('streak-3', 30), ('streak-7', 80), ('streak-30', 300),
+  ('under-budget-month', 120), ('tracker-10', 30), ('points-500', 0)
+on conflict (id) do update set points = excluded.points;
+
+create table if not exists public.user_achievements (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  achievement_id text not null references public.achievement_points (id),
+  awarded_at timestamptz not null default now(),
+  primary key (user_id, achievement_id)
+);
+alter table public.user_achievements enable row level security;
+
+drop policy if exists "users read own achievement awards" on public.user_achievements;
+create policy "users read own achievement awards"
+  on public.user_achievements for select to authenticated using (auth.uid() = user_id);
+-- writes happen only inside earn_points (security definer)
+
+alter table public.achievement_points enable row level security;
+drop policy if exists "achievement points are readable" on public.achievement_points;
+create policy "achievement points are readable"
+  on public.achievement_points for select to authenticated using (true);
+
+drop function if exists public.earn_points(int, text);
+
+create or replace function public.earn_points(
+  p_reason text, p_ref text default null, p_amount int default null
+) returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_today date := (now() at time zone 'utc')::date;
+  v_declared_cap constant int := 500;   -- per UTC day, unverifiable reasons only
+  v_award int := 0;
+  v_rows int;
+  v_last timestamptz;
+  v_earn_date date;
+  v_earned_today int;
+  v_checkin date;
+  v_streak int;
+  v_best int;
+  v_migrated boolean;
+  v_points int;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  select last_earn_at, earn_date, earned_today, checkin_date, checkin_streak, best_streak, migrated
+    into v_last, v_earn_date, v_earned_today, v_checkin, v_streak, v_best, v_migrated
+    from profiles where id = auth.uid() for update;
+
+  if v_last is not null and v_last > now() - interval '1 second' then
+    return json_build_object('error', 'too_fast');
+  end if;
+
+  if v_earn_date is distinct from v_today then v_earned_today := 0; end if;
+
+  if p_reason = 'daily_checkin' then
+    if v_checkin = v_today then return json_build_object('error', 'already_checked_in'); end if;
+    -- The streak is server-owned now; it used to live in localStorage, where it
+    -- was both forgeable and the trigger for the +75 bonus.
+    v_streak := case when v_checkin = v_today - 1 then coalesce(v_streak, 0) + 1 else 1 end;
+    v_best := greatest(coalesce(v_best, 0), v_streak);
+    v_award := 25;
+    if v_streak % 7 = 0 then v_award := v_award + 75; end if;
+    update profiles
+       set checkin_date = v_today, checkin_streak = v_streak, best_streak = v_best
+     where id = auth.uid();
+
+  elsif p_reason = 'achievement' then
+    select points into v_award from achievement_points where id = p_ref;
+    if not found then return json_build_object('error', 'no_such_achievement'); end if;
+    insert into user_achievements (user_id, achievement_id)
+      values (auth.uid(), p_ref) on conflict do nothing;
+    get diagnostics v_rows = row_count;
+    if v_rows = 0 then return json_build_object('error', 'already_awarded'); end if;
+
+  elsif p_reason = 'goal_contribution' then
+    v_award := least(greatest(coalesce(p_amount, 0), 1), 100);
+    v_award := least(v_award, greatest(0, v_declared_cap - v_earned_today));
+    if v_award = 0 then return json_build_object('error', 'daily_cap'); end if;
+    update profiles set earn_date = v_today, earned_today = v_earned_today + v_award
+     where id = auth.uid();
+
+  elsif p_reason = 'migration' then
+    if v_migrated then return json_build_object('error', 'already_migrated'); end if;
+    v_award := least(greatest(coalesce(p_amount, 0), 0), 2000);
+    update profiles set migrated = true where id = auth.uid();
+
+  else
+    return json_build_object('error', 'bad_reason');
+  end if;
+
+  update profiles
+     set points = points + v_award,
+         lifetime_points = lifetime_points + v_award,
+         last_earn_at = now()
+   where id = auth.uid()
+   returning points into v_points;
+
+  return json_build_object(
+    'ok', true, 'awarded', v_award, 'points', v_points,
+    'streak', coalesce(v_streak, 0), 'best_streak', coalesce(v_best, 0)
+  );
+end $$;
+
+grant execute on function public.earn_points(text, text, int) to authenticated;
+grant select on public.achievement_points to authenticated;
+grant select on public.user_achievements to authenticated;
+
+-- ============================================================
+-- V9: PREMIUM
+-- ============================================================
+-- Every gate here is decided by is_premium() INSIDE a definer RPC, so it holds
+-- even though the client can see (but not write) its own plan. plan and
+-- plan_expires_at are written only by redeem_code (and, later, a Stripe
+-- webhook) — they are absent from the V8 column grants.
+
+alter table public.profiles add column if not exists plan_expires_at timestamptz;
+do $$ begin
+  alter table public.profiles add constraint plan_valid check (plan in ('free','premium','business'));
+exception when duplicate_object then null; end $$;
+
+-- One boolean the whole schema shares. security definer so a storage policy or
+-- another RPC can call it regardless of the caller's row visibility. A null
+-- expiry means "no expiry" (e.g. a comped/business account).
+create or replace function public.is_premium()
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from profiles
+    where id = auth.uid()
+      and plan in ('premium','business')
+      and (plan_expires_at is null or plan_expires_at > now())
+  );
+$$;
+
+grant execute on function public.is_premium() to authenticated;
+
+-- ---------- 9.1 AI quota: 5 free / 100 premium ----------
+-- The edge function still passes p_daily_limit, but the RPC no longer trusts
+-- it — the limit is derived from is_premium() here, server-side.
+create or replace function public.use_ai_message(p_daily_limit int default 20)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_today date := (now() at time zone 'utc')::date;
+  v_limit int := case when public.is_premium() then 100 else 5 end;
+  v_count int;
+  v_date date;
+  v_last timestamptz;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  select ai_msg_count, ai_msg_date, ai_last_msg_at into v_count, v_date, v_last
+    from profiles where id = auth.uid() for update;
+
+  if v_last is not null and v_last > now() - interval '2 seconds' then
+    return json_build_object('error', 'too_fast');
+  end if;
+
+  if v_date is distinct from v_today then v_count := 0; end if;
+
+  if v_count >= v_limit then
+    return json_build_object('error', 'quota_exceeded', 'limit', v_limit);
+  end if;
+
+  update profiles
+     set ai_msg_count = v_count + 1, ai_msg_date = v_today, ai_last_msg_at = now()
+   where id = auth.uid();
+
+  return json_build_object('ok', true, 'remaining', v_limit - (v_count + 1), 'limit', v_limit);
+end $$;
+
+-- ---------- 9.2 Group creation: 2 free / 30 premium ----------
+create or replace function public.create_group(
+  p_name text, p_icon text, p_description text,
+  p_target_date date, p_per_person numeric, p_accent text
+) returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_code text;
+  v_id uuid;
+  v_cap int := case when public.is_premium() then 30 else 2 end;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  if (select count(*) from groups where created_by = auth.uid()) >= v_cap then
+    -- Distinct code so the client can show an upsell rather than a dead end.
+    return json_build_object('error',
+      case when v_cap = 30 then 'group_limit_reached' else 'group_limit_free' end);
+  end if;
+
+  -- Guard: an emoji is all the icon should ever be (also an XSS constraint, V8).
+  if p_icon is null or char_length(p_icon) > 8 then
+    return json_build_object('error', 'bad_icon');
+  end if;
+
+  loop
+    v_code := upper(substr(replace(replace(encode(extensions.gen_random_bytes(8), 'base64'), '/', ''), '+', ''), 1, 8));
+    exit when not exists (select 1 from groups where code = v_code);
+  end loop;
+
+  insert into groups (code, name, icon, description, target_date, per_person, created_by)
+  values (v_code, p_name, p_icon, coalesce(p_description, ''), p_target_date, p_per_person, auth.uid())
+  returning id into v_id;
+
+  insert into group_members (group_id, user_id, role, accent_color)
+  values (v_id, auth.uid(), 'owner', coalesce(p_accent, '#3E7A4D'));
+
+  return json_build_object('id', v_id, 'code', v_code);
+end $$;
+
+-- ---------- 9.3 Daily spin: 1 free / 2 premium ----------
+alter table public.profiles add column if not exists spin_date date;
+alter table public.profiles add column if not exists spins_today int not null default 0;
+
+create or replace function public.daily_spin()
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_today date := (now() at time zone 'utc')::date;
+  v_allowed int := case when public.is_premium() then 2 else 1 end;
+  v_date date;
+  v_used int;
+  v_roll numeric;
+  v_prize text;
+  v_points int := 0;
+  v_balance int;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  select spin_date, spins_today into v_date, v_used from profiles where id = auth.uid() for update;
+  if v_date is distinct from v_today then v_used := 0; end if;
+  if v_used >= v_allowed then
+    return json_build_object('error', 'already_spun', 'allowed', v_allowed);
+  end if;
+
+  v_roll := random();
+  if    v_roll < 0.30  then v_prize := 'points'; v_points := 25;
+  elsif v_roll < 0.55  then v_prize := 'points'; v_points := 50;
+  elsif v_roll < 0.72  then v_prize := 'points'; v_points := 75;
+  elsif v_roll < 0.84  then v_prize := 'points'; v_points := 100;
+  elsif v_roll < 0.92  then v_prize := 'points'; v_points := 150;
+  elsif v_roll < 0.96  then v_prize := 'points'; v_points := 300;
+  elsif v_roll < 0.985 then v_prize := 'flair-lucky';
+  else                      v_prize := 'tag-jackpot';
+  end if;
+
+  if v_prize <> 'points' then
+    if exists (select 1 from user_items where user_id = auth.uid() and item_id = v_prize) then
+      v_prize := 'points'; v_points := 100;
+    else
+      insert into user_items (user_id, item_id) values (auth.uid(), v_prize);
+    end if;
+  end if;
+
+  update profiles
+     set spin_date = v_today,
+         spins_today = v_used + 1,
+         last_spin_at = now(),
+         points = points + v_points,
+         lifetime_points = lifetime_points + v_points
+   where id = auth.uid()
+   returning points into v_balance;
+
+  return json_build_object(
+    'prize', v_prize, 'points', v_points, 'balance', v_balance,
+    'remaining', v_allowed - (v_used + 1)
+  );
+end $$;
+
+-- ---------- 9.4 Grant premium via redeem code ----------
+-- The bundle column has existed (defaulted to 'supporter') since V4 but was
+-- never read. 'premium1m' grants a month, stacking from the later of now / the
+-- current expiry so two codes give two months.
+create or replace function public.redeem_code(p_code text)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_row redeem_codes%rowtype;
+  v_balance int;
+  v_expires timestamptz;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+
+  select * into v_row from redeem_codes where code = upper(trim(p_code)) for update;
+  if not found then return json_build_object('error', 'invalid_code'); end if;
+  if v_row.used_count >= v_row.max_uses then return json_build_object('error', 'code_used_up'); end if;
+  if exists (select 1 from code_redemptions where code = v_row.code and user_id = auth.uid()) then
+    return json_build_object('error', 'already_redeemed');
+  end if;
+
+  insert into code_redemptions (code, user_id) values (v_row.code, auth.uid());
+  update redeem_codes set used_count = used_count + 1 where code = v_row.code;
+
+  if v_row.bundle = 'premium1m' then
+    update profiles
+       set plan = 'premium',
+           plan_expires_at = greatest(now(), coalesce(plan_expires_at, now())) + interval '1 month'
+     where id = auth.uid()
+     returning plan_expires_at into v_expires;
+    return json_build_object('ok', true, 'bundle', 'premium1m', 'expires', v_expires);
+  end if;
+
+  -- Default 'supporter' bundle: Aurora Crown flair + Early Supporter tag + 200 points
+  insert into user_items (user_id, item_id)
+    values (auth.uid(), 'flair-crown'), (auth.uid(), 'tag-supporter')
+    on conflict do nothing;
+
+  update profiles
+     set points = points + 200,
+         lifetime_points = lifetime_points + 200
+   where id = auth.uid()
+   returning points into v_balance;
+
+  return json_build_object('ok', true, 'bundle', 'supporter', 'points', 200, 'balance', v_balance);
+end $$;
+
+-- ---------- 9.5 Custom category images (Premium) ----------
+-- Mirrors the avatars bucket, with one added clause: only premium accounts may
+-- write. This is the sole SERVER-enforced part of the custom-category feature —
+-- the category list itself lives in localStorage, so its gate is client-side.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('category-images', 'category-images', true, 2097152, array['image/png','image/jpeg','image/webp'])
+on conflict (id) do nothing;
+
+drop policy if exists "category images are publicly readable" on storage.objects;
+create policy "category images are publicly readable"
+  on storage.objects for select using (bucket_id = 'category-images');
+
+drop policy if exists "premium users upload category images" on storage.objects;
+create policy "premium users upload category images"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'category-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and public.is_premium()
+  );
+
+drop policy if exists "premium users update category images" on storage.objects;
+create policy "premium users update category images"
+  on storage.objects for update to authenticated
+  using (
+    bucket_id = 'category-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and public.is_premium()
+  );
+
+-- Removing a category image is allowed regardless of plan — a lapsed user must
+-- still be able to clean up (and delete_account must purge without a plan check).
+drop policy if exists "users delete own category images" on storage.objects;
+create policy "users delete own category images"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'category-images' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- delete_account gains the new bucket. Storage doesn't cascade from auth.users,
+-- so every bucket a user writes to must be purged here by hand.
+create or replace function public.delete_account()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  delete from storage.objects
+   where bucket_id in ('avatars', 'category-images')
+     and name like auth.uid()::text || '/%';
+  delete from auth.users where id = auth.uid();
+end $$;
+
+-- ============================================================
 -- Force PostgREST to reload its schema cache immediately, so new
 -- foreign keys (and other relationship changes) are visible to the API
 -- right away rather than waiting for its own periodic refresh.

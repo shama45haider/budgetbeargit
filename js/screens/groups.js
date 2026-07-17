@@ -1,6 +1,6 @@
 /* Budget Bear — Groups tab: your group links, create, and join flows. */
 
-import { esc, money, shortDate } from "../format.js";
+import { esc, escCss, escUrl, money, shortDate } from "../format.js";
 import { currentUser, myProfile } from "../cloud/client.js";
 import { cloudConfigured } from "../cloud/config.js";
 import * as api from "../cloud/api.js";
@@ -83,7 +83,7 @@ async function loadGroups(view) {
   const list = view.querySelector("#groups-list");
   try {
     const groups = await api.myGroups();
-    if (!view.isConnected) return;
+    if (!list.isConnected) return; // #view is permanent; its children are not
     if (!groups.length) {
       list.innerHTML = `
         <div class="empty-state">
@@ -97,7 +97,7 @@ async function loadGroups(view) {
     const withMembers = await Promise.all(groups.map(async (g) => ({
       ...g, members: await api.groupMembers(g.id),
     })));
-    if (!view.isConnected) return;
+    if (!list.isConnected) return;
     list.innerHTML = withMembers.map(groupCard).join("");
     list.querySelectorAll("[data-group]").forEach((el) =>
       el.addEventListener("click", () => navigate("/group/" + el.dataset.group)));
@@ -114,7 +114,7 @@ function groupCard(g) {
   return `
   <button class="card tappable group-card" data-group="${g.id}" style="width:100%;text-align:left;margin-bottom:12px">
     <div class="row" style="margin-bottom:10px">
-      <div class="icon-bubble" style="width:44px;height:44px;border-radius:14px;font-size:20px">${g.icon}</div>
+      <div class="icon-bubble" style="width:44px;height:44px;border-radius:14px;font-size:20px">${esc(g.icon)}</div>
       <div class="grow">
         <h3>${esc(g.name)}</h3>
         <div class="t-small t-secondary">${g.target_date ? "By " + shortDate(g.target_date) + " · " : ""}${money(Number(g.per_person))} each</div>
@@ -131,9 +131,9 @@ function groupCard(g) {
 }
 
 export function avatarHTML(m, size = 34, extraStyle = "") {
-  const ring = `border:2px solid ${esc(m.accent || "#3E7A4D")};`;
+  const ring = `border:2px solid ${escCss(m.accent)};`;
   if (m.avatar) {
-    return `<img class="avatar" src="${esc(m.avatar)}" alt="" width="${size}" height="${size}"
+    return `<img class="avatar" src="${escUrl(m.avatar)}" alt="" width="${size}" height="${size}"
       style="width:${size}px;height:${size}px;${ring}${extraStyle}" loading="lazy">`;
   }
   const initial = (m.name || "?").trim().charAt(0).toUpperCase();
@@ -295,7 +295,7 @@ export function renderJoin(view, code) {
     let accent = me?.accent_color || "#3E7A4D";
     body.innerHTML = `
       <div class="card" style="text-align:center;padding:24px">
-        <div style="font-size:44px;margin-bottom:8px">${g.icon}</div>
+        <div style="font-size:44px;margin-bottom:8px">${esc(g.icon)}</div>
         <h2>${esc(g.name)}</h2>
         ${g.description ? `<p class="t-secondary t-small" style="margin-top:6px">${esc(g.description)}</p>` : ""}
         <div class="join-facts">

@@ -5,6 +5,7 @@ const routes = new Map();      // exact path → render(view)
 const paramRoutes = [];        // { parts: ["group", ":id"], render(view, ...params) }
 let currentPath = null;
 let beforeEach = null;
+let leaveHooks = [];           // teardown for the screen currently on-screen
 
 export function register(path, render) {
   if (path.includes(":")) {
@@ -16,6 +17,22 @@ export function register(path, render) {
 
 export function setGuard(fn) {
   beforeEach = fn;
+}
+
+/** Register teardown for the screen being rendered — realtime channels, timers.
+    Runs once, when the router leaves (or re-renders) this screen.
+
+    Screens can't do this for themselves on the way out: nothing tells them
+    they're gone. `view.isConnected` reads as a liveness check but #view is a
+    permanent element that is only ever emptied, so it is always true. */
+export function onLeave(fn) {
+  leaveHooks.push(fn);
+}
+
+/** True while the screen that called onLeave//captured this path is still on
+    screen. Async work should check this before painting. */
+export function isCurrent(path) {
+  return currentPath === path;
 }
 
 export function navigate(path) {
@@ -52,6 +69,11 @@ function render() {
     }
   }
   const view = document.getElementById("view");
+
+  // Tear down the outgoing screen before the incoming one registers its own.
+  for (const fn of leaveHooks) { try { fn(); } catch { /* never block navigation */ } }
+  leaveHooks = [];
+
   currentPath = path;
   view.innerHTML = "";
 

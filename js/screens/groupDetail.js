@@ -1,6 +1,6 @@
 /* Budget Bear — Group detail: live leaderboard, contributions, feed, achievements, daily tip. */
 
-import { esc, money, shortDate, todayISO } from "../format.js";
+import { esc, escCss, money, shortDate, todayISO } from "../format.js";
 import { get, update, uid } from "../store.js";
 import { currentUser } from "../cloud/client.js";
 import * as api from "../cloud/api.js";
@@ -11,14 +11,13 @@ import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
 import { avatarHTML, openShareSheet } from "./groups.js";
 import { flairStyle, effectClass, tagHTML, levelFor } from "../data/shop.js";
 import { awardContribution } from "../engine/points.js";
-import { navigate } from "../router.js";
+import { navigate, onLeave, isCurrent } from "../router.js";
 import { authNext } from "./auth.js";
 
-let unsubscribe = null;
 const shownUnlocks = new Set(); // avoid double overlays per session
 
 export function renderGroupDetail(view, groupId) {
-  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  const myPath = "/group/" + groupId;
 
   if (!currentUser()) {
     authNext("/group/" + groupId);
@@ -45,7 +44,7 @@ export function renderGroupDetail(view, groupId) {
         api.recentContributions(groupId),
         api.groupAchievements(groupId),
       ]);
-      if (!view.isConnected) return;
+      if (!isCurrent(myPath)) return; // navigated away mid-load — don't paint over the new screen
       if (!group) {
         view.innerHTML = `<div class="screen"><div class="empty-state" style="padding-top:60px">
           <img src="assets/bears/confusedbear.png" alt="">
@@ -57,17 +56,18 @@ export function renderGroupDetail(view, groupId) {
       paint(view, state, load);
       if (prevPositions) playFLIP(view, prevPositions);
       const gotNewUnlocks = await detectUnlocks(state);
-      if (gotNewUnlocks && view.isConnected) paint(view, state, load); // reflect newly-unlocked badges now, not on next load
+      if (gotNewUnlocks && isCurrent(myPath)) paint(view, state, load); // reflect newly-unlocked badges now, not on next load
       markSeen(state.achievements);
     } catch (e) {
-      if (!view.isConnected) return;
+      if (!isCurrent(myPath)) return;
       view.innerHTML = `<div class="screen"><div class="callout danger"><span>⚠️</span>
         <div>Couldn't load this group. ${esc(e.message || "Check your connection.")}</div></div></div>`;
     }
   };
 
   load();
-  unsubscribe = api.subscribeGroup(groupId, () => load({ animate: true }));
+  const unsubscribe = api.subscribeGroup(groupId, () => load({ animate: true }));
+  onLeave(unsubscribe); // the router owns teardown — leaving to ANY screen closes the channel
 }
 
 /* ---------- painting ---------- */
@@ -100,7 +100,7 @@ function paint(view, state, reload) {
 
     <section class="card gd-hero">
       <div class="row">
-        <div class="icon-bubble" style="width:52px;height:52px;border-radius:16px;font-size:24px">${group.icon}</div>
+        <div class="icon-bubble" style="width:52px;height:52px;border-radius:16px;font-size:24px">${esc(group.icon)}</div>
         <div class="grow">
           <h1 style="font-size:var(--fs-22)">${esc(group.name)}</h1>
           <div class="t-small t-secondary">
@@ -183,7 +183,7 @@ function memberRow(m, index, group, myId) {
   const fx = effectClass(m.equipped);
   const lvl = levelFor(m.lifetimePoints);
   return `
-  <div class="card member-row ${isMe ? "me" : ""}" data-member="${m.userId}" style="--accent:${esc(m.accent)}">
+  <div class="card member-row ${isMe ? "me" : ""}" data-member="${m.userId}" style="--accent:${escCss(m.accent)}">
     <div class="row">
       <div class="rank">${medal}</div>
       ${flair ? `<span class="flair-ring" style="${flair}">${avatarHTML(m, 35)}</span>` : avatarHTML(m, 40)}
@@ -239,7 +239,7 @@ function openContribute(state, reload) {
   const suggest = [10, 25, 50, 100].filter((v) => v <= Math.max(10, remainingMine || myTarget));
 
   openSheet(`
-    <h2 class="sheet-title">${group.icon} Add savings</h2>
+    <h2 class="sheet-title">${esc(group.icon)} Add savings</h2>
     <div class="chip-row" style="margin-bottom:14px">
       ${suggest.map((v) => `<button class="chip" data-v="${v}">${money(v)}</button>`).join("")}
     </div>
@@ -391,7 +391,7 @@ function openAssignGoals(state, reload) {
           <div class="grow t-small" style="font-weight:var(--fw-medium)">${esc(m.name)}</div>
           <div class="amount-input-wrap" style="width:120px">
             <span class="currency" style="font-size:var(--fs-14)">$</span>
-            <input class="input" style="min-height:42px;font-size:var(--fs-14)" inputmode="decimal"
+            <input class="input" style="min-height:42px" inputmode="decimal"
               data-target-input placeholder="Default" value="${m.customTarget != null ? m.customTarget : ""}">
           </div>
         </div>`).join("")}

@@ -4,14 +4,12 @@ import { esc, shortDate } from "../format.js";
 import { currentUser } from "../cloud/client.js";
 import * as api from "../cloud/api.js";
 import { toast } from "../ui/components.js";
-import { navigate } from "../router.js";
+import { navigate, onLeave, isCurrent } from "../router.js";
 import { avatarHTML } from "./groups.js";
 import { authNext } from "./auth.js";
 
-let unsubscribe = null;
-
 export function renderGroupChat(view, groupId) {
-  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  const myPath = "/group/" + groupId + "/chat";
 
   if (!currentUser()) {
     authNext("/group/" + groupId + "/chat");
@@ -52,7 +50,7 @@ export function renderGroupChat(view, groupId) {
         api.getGroup(groupId),
         api.recentMessages(groupId),
       ]);
-      if (!view.isConnected) return;
+      if (!isCurrent(myPath)) return;
       if (!group) {
         view.innerHTML = `<div class="screen"><div class="empty-state" style="padding-top:60px">
           <img src="assets/bears/confusedbear.png" alt="">
@@ -63,7 +61,7 @@ export function renderGroupChat(view, groupId) {
       view.querySelector("#gc-title").textContent = group.icon + " " + group.name;
       paintMessages(list, messages, me.id);
     } catch (e) {
-      if (!view.isConnected) return;
+      if (!isCurrent(myPath)) return;
       list.innerHTML = `<div class="callout danger"><span>⚠️</span><div>Couldn't load the chat. ${esc(e.message || "Check your connection.")}</div></div>`;
     }
   };
@@ -71,9 +69,10 @@ export function renderGroupChat(view, groupId) {
   load();
 
   // Own channel: a new message never touches the leaderboard/achievement flow.
-  unsubscribe = api.subscribeGroupChat(groupId, (payload) => {
+  const unsubscribe = api.subscribeGroupChat(groupId, (payload) => {
     appendLiveMessage(list, payload.new, me.id);
   });
+  onLeave(unsubscribe);
 
   view.querySelector("#gc-form").addEventListener("submit", async (e) => {
     e.preventDefault();

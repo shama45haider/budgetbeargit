@@ -26,6 +26,15 @@ export function currentSession() { return session; }
 export function currentUser() { return session?.user || null; }
 export function myProfile() { return profile; }
 
+/** Client-side mirror of the server's is_premium(). Only ever gates UI — every
+    real limit is enforced by is_premium() inside the RPC. Re-reads the loaded
+    profile each call, so a lapse takes effect on the next loadMyProfile(). */
+export function isPremium() {
+  const p = profile;
+  if (!p || (p.plan !== "premium" && p.plan !== "business")) return false;
+  return !p.plan_expires_at || new Date(p.plan_expires_at) > new Date();
+}
+
 export function onAuthChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -133,12 +142,23 @@ export async function deleteAccount() {
 
 /* ---------- Profile updates ---------- */
 
+/** Cosmetic profile fields only. The `authenticated` role holds column-level
+    UPDATE grants covering exactly these (see schema.sql V8) — points, plan,
+    equipped, quota counters and avatar_url are writable only by definer RPCs.
+    updated_at is maintained by a trigger; sending it now fails on permission. */
+const PROFILE_EDITABLE = [
+  "display_name", "banner_color", "accent_color",
+  "about", "pronouns", "status_emoji", "status_text",
+];
+
 export async function updateProfile(fields) {
   const c = getClient();
   const user = currentUser();
   if (!c || !user) throw new Error("Not signed in");
+  const safe = {};
+  for (const k of PROFILE_EDITABLE) if (k in fields) safe[k] = fields[k];
   const { data, error } = await c.from("profiles")
-    .update({ ...fields, updated_at: new Date().toISOString() })
+    .update(safe)
     .eq("id", user.id)
     .select()
     .single();
@@ -159,6 +179,36 @@ export async function uploadAvatar(file) {
   const { data } = c.storage.from("avatars").getPublicUrl(path);
   // cache-bust since the path is stable across uploads
   const url = data.publicUrl + "?v=" + Date.now();
-  await updateProfile({ avatar_url: url });
+  const res = await c.rpc("set_avatar_url", { p_url: url });
+  if (res.error) throw res.error;
+  if (res.data?.error) throw new Error(res.data.error);
+  await loadMyProfile();
+  notify();
   return url;
+}
+
+/** Upload a custom category image (Premium). The storage policy enforces the
+    plan server-side; a non-premium upload fails there, not here. Returns the
+    public URL to store on the local category. */
+export async function uploadCategoryImage(categoryId, file) {
+  const c = getClient();
+  const user = currentUser();
+  if (!c || !user) throw new Error("Not signed in");
+  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const path = `${user.id}/${categoryId}.${ext}`;
+  const { error } = await c.storage.from("category-images").upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw error;
+  const { data } = c.storage.from("category-images").getPublicUrl(path);
+  return data.publicUrl + "?v=" + Date.now();
+}
+
+/** Clear the avatar (the file stays; the profile stops pointing at it). */
+export async function clearAvatar() {
+  const c = getClient();
+  if (!currentUser()) throw new Error("Not signed in");
+  const { data, error } = await c.rpc("set_avatar_url", { p_url: null });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  await loadMyProfile();
+  notify();
 }

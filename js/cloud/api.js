@@ -6,6 +6,7 @@ import { getClient, currentUser } from "./client.js";
 export function friendlyCloudError(err, fallback = "Something went wrong. Try again.") {
   const m = (err?.message || "").toLowerCase();
   if (m.includes("group_limit_reached")) return "You've hit the limit of 30 groups. Delete an old one to create another.";
+  if (m.includes("group_limit_free")) return "Free accounts can create 2 groups. Go Premium for up to 30.";
   if (m.includes("too_fast")) return "That was fast — wait a second and try again.";
   if (m.includes("group_full")) return "That group is full (20 members max).";
   if (m.includes("permission denied")) return "You don't have access to do that.";
@@ -62,9 +63,15 @@ export async function getGroup(id) {
   return data;
 }
 
+/** Owner edits a group. Allowlisted: this used to spread arbitrary columns,
+    so a caller could rewrite `icon` (an XSS sink) or `code` (the join secret). */
+const GROUP_EDITABLE = ["name", "description", "target_date", "per_person", "icon"];
+
 export async function updateGroup(id, fields) {
   const c = getClient();
-  const { error } = await c.from("groups").update(fields).eq("id", id);
+  const safe = {};
+  for (const k of GROUP_EDITABLE) if (k in fields) safe[k] = fields[k];
+  const { error } = await c.from("groups").update(safe).eq("id", id);
   if (error) throw error;
 }
 
@@ -198,12 +205,17 @@ export function subscribeGroup(groupId, onChange) {
 
 /* ---------- Points & Shop ---------- */
 
-/** Server-side point award (capped + rate-limited in the RPC). Returns new balance. */
-export async function earnPoints(amount, reason) {
+/** Server-side point award. The SERVER decides the amount — `amount` is only a
+    proposal for the two reasons it can't verify (goal_contribution, migration),
+    and it clamps those plus applies a daily ceiling. Returns the RPC result:
+    { ok, awarded, points, streak, best_streak } or { error }. */
+export async function earnPoints(reason, ref = null, amount = null) {
   const c = getClient();
-  const { data, error } = await c.rpc("earn_points", { p_amount: amount, p_reason: reason });
+  const { data, error } = await c.rpc("earn_points", {
+    p_reason: reason, p_ref: ref, p_amount: amount,
+  });
   if (error) throw error;
-  return data.points;
+  return data;
 }
 
 /** Buy a shop item; price and balance are checked server-side. */

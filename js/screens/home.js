@@ -197,7 +197,7 @@ function openCheckIn(da, bills, goal) {
       <div class="callout"><span>💵</span><div><strong>${money(da.leftToday)}</strong> of fun money for today.</div></div>
       ${billsSoon.length ? `<div class="callout"><span>📅</span><div>${billsSoon.map((b) => `${esc(b.name)} ${b.inDays === 0 ? "due today" : relativeDay(b.dueDate).toLowerCase()} (${money(b.amount)})`).join(" · ")}</div></div>` : ""}
       ${goal && st && !st.complete ? `<div class="callout"><span>${goal.icon}</span><div>${esc(goal.name)}: ${esc(st.nextAction)}</div></div>` : ""}
-      <div class="callout"><span>🔥</span><div>Streak: <strong>${s.points.streak} day${s.points.streak === 1 ? "" : "s"}</strong>. Checking in daily earns 10 Bear Points.</div></div>
+      <div class="callout"><span>🔥</span><div>Streak: <strong>${s.points.streak} day${s.points.streak === 1 ? "" : "s"}</strong>. Checking in daily earns 25 Bear Points — plus 75 every 7th day.</div></div>
     </div>
     <button class="btn btn-primary btn-block" style="margin-top:20px" id="btn-complete-checkin">Done — I've reviewed today</button>
   `, {

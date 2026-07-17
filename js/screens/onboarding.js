@@ -6,7 +6,7 @@
 import { update, uid } from "../store.js";
 import { navigate } from "../router.js";
 import { esc, money, todayISO } from "../format.js";
-import { buildSeed } from "../data/seed.js";
+import { applyDemoSeed } from "../data/seed.js";
 import { checkAchievements } from "../engine/points.js";
 
 const answers = {};
@@ -330,8 +330,7 @@ function computePlan() {
 }
 
 function loadDemo() {
-  const seed = buildSeed();
-  update((s) => Object.assign(s, seed));
+  applyDemoSeed();
   navigate("/home");
 }
 

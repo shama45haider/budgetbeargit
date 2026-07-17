@@ -554,3 +554,16 @@
   font-size: var(--fs-13);
   flex-shrink: 0;
 }
+
+.plan-current-tag {
+  display: inline-block;
+  font-size: var(--fs-11);
+  font-weight: var(--fw-semibold);
+  color: var(--green-800);
+  background: var(--tint);
+  border: 1px solid var(--green-500);
+  border-radius: var(--r-full);
+  padding: 1px 8px;
+  vertical-align: middle;
+  margin-left: 6px;
+}

@@ -12,33 +12,48 @@ import { currentUser, loadMyProfile, myProfile } from "../cloud/client.js";
 import { earnPoints } from "../cloud/api.js";
 
 /* ---------- cloud earn queue ----------
-   The earn_points RPC allows one call per 3s (abuse guard). A check-in that
-   also unlocks achievements fires several awards at once, so we coalesce
-   pending amounts and flush them serially. */
+   The server decides what every award is worth (schema.sql V8) — we send the
+   REASON, not an amount. A check-in that also unlocks achievements fires
+   several distinct awards at once, and earn_points allows one call per second,
+   so events queue and flush serially rather than being summed together. */
 
-let pendingCloud = 0;
+const pending = [];   // { reason, ref, amount }
 let flushTimer = null;
 
-function queueCloudEarn(amount, reason) {
-  if (!currentUser()) return;
-  pendingCloud += amount;
-  if (flushTimer) return;
-  flushTimer = setTimeout(flushCloudEarns, 400); // small window to coalesce bursts
-  async function flushCloudEarns() {
-    const send = Math.min(300, pendingCloud);
-    pendingCloud -= send;
-    try {
-      const balance = await earnPoints(send, reason);
-      update((s) => { s.points.balance = balance; }); // mirror server truth
-    } catch (err) {
-      if ((err?.message || "").includes("too_fast")) {
-        pendingCloud += send; // rate-guarded — retry on the next tick
-      } else {
-        pendingCloud = 0; // offline etc. — local mirror keeps the points for now
+function queueCloudEarn(reason, ref = null, amount = null) {
+  if (!currentUser()) return; // demo mode stays fully local
+  pending.push({ reason, ref, amount });
+  if (!flushTimer) flushTimer = setTimeout(flush, 400); // coalesce the initial burst
+}
+
+async function flush() {
+  const ev = pending[0];
+  if (!ev) { flushTimer = null; return; }
+  let retry = false;
+  try {
+    const res = await earnPoints(ev.reason, ev.ref, ev.amount);
+    if (res?.error === "too_fast") {
+      retry = true; // rate guard — keep it queued
+    } else {
+      pending.shift();
+      if (res?.ok) {
+        update((s) => {
+          s.points.balance = res.points;              // server balance is the truth
+          if (typeof res.streak === "number" && res.streak > 0) {
+            s.points.streak = res.streak;             // streak is server-owned now
+            s.points.bestStreak = res.best_streak ?? s.points.bestStreak;
+          }
+        });
       }
+      // Any other { error } (already_awarded, daily_cap, already_checked_in) is
+      // the server correctly refusing a duplicate — drop it, don't retry.
     }
-    flushTimer = pendingCloud > 0 ? setTimeout(flushCloudEarns, 3400) : null;
+  } catch {
+    // Offline or transport failure. Drop the queue rather than spin: the local
+    // mirror already shows the points, and the next award reconciles the balance.
+    pending.length = 0;
   }
+  flushTimer = pending.length ? setTimeout(flush, retry ? 1200 : 1100) : null;
 }
 
 /** After sign-in: one-time migration of local points, then mirror the cloud balance. */
@@ -47,7 +62,7 @@ export function onSignedIn() {
   if (!s.settings.pointsMigrated) {
     const credit = Math.min(2000, Math.max(0, Math.round(s.points.balance)));
     update((st) => { st.settings.pointsMigrated = true; });
-    if (credit > 0) queueCloudEarn(credit, "Welcome migration");
+    if (credit > 0) queueCloudEarn("migration", null, credit);
   }
   // Pull the authoritative balance once the profile is loaded.
   loadMyProfile().then((p) => {
@@ -62,14 +77,12 @@ export function lifetimePoints() {
 
 /* ---------- awards ---------- */
 
-export function award(reason, amount) {
+function awardLocal(reason, amount) {
   update((s) => {
     s.points.balance += amount;
     s.points.history.unshift({ id: uid(), reason, amount, date: todayISO() });
     if (s.points.history.length > 200) s.points.history.length = 200;
   });
-  queueCloudEarn(amount, reason);
-  checkAchievements();
 }
 
 export function hasCheckedInToday() {
@@ -102,7 +115,7 @@ export function dailyCheckIn() {
     s.points.history.unshift({ id: uid(), reason: "Daily check-in", amount: earned, date: today });
   });
 
-  queueCloudEarn(earned, "Daily check-in");
+  queueCloudEarn("daily_checkin");
   checkAchievements();
   return earned;
 }
@@ -119,24 +132,24 @@ export function checkAchievements() {
   }
   if (!newly.length) return;
 
-  let cloudTotal = 0;
   update((st) => {
     for (const a of newly) {
       st.achievements.unlocked[a.id] = todayISO();
       if (a.points) {
         st.points.balance += a.points;
         st.points.history.unshift({ id: uid(), reason: a.title, amount: a.points, date: todayISO() });
-        cloudTotal += a.points;
       }
     }
   });
-  if (cloudTotal > 0) queueCloudEarn(cloudTotal, "Achievements");
+  for (const a of newly) queueCloudEarn("achievement", a.id);
   for (const a of newly) showAchievement(a);
 }
 
 /** Award for goal contribution — called by goal screens. */
 export function awardContribution(amount) {
   const pts = Math.min(100, Math.max(10, Math.round(amount / 5)));
-  award("Goal contribution", pts);
+  awardLocal("Goal contribution", pts);
+  queueCloudEarn("goal_contribution", null, pts);
+  checkAchievements();
   toast(`+${pts} Bear Points`);
 }

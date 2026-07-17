@@ -450,3 +450,43 @@
   gap: 7px;
   font-size: var(--fs-14);
 }
+
+/* ------- Custom category images ------- */
+/* A category's icon can be an uploaded photo instead of an emoji. The image
+   fills whatever icon container it lands in (list bubble, card bubble, tile). */
+.icon-bubble .cat-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.cat-tile span .cat-img {
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 9px;
+  display: block;
+}
+/* The tappable icon in the Category-budgets sheet — reuses .icon-bubble but is
+   a button, so it needs the reset + an affordance. */
+button.cat-edit-icon {
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+button.cat-edit-icon::after {
+  content: "✎";
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}

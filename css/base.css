@@ -108,7 +108,7 @@ a { color: var(--primary); text-decoration: none; }
   align-items: center;
   gap: var(--sp-3);
 }
-.row .grow { flex: 1; min-width: 0; }
+.row .grow, .grow { flex: 1; min-width: 0; }
 
 .section-title {
   font-size: var(--fs-13);

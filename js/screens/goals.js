@@ -8,6 +8,7 @@ import { GOAL_TEMPLATES } from "../data/categories.js";
 import { awardContribution, checkAchievements } from "../engine/points.js";
 import { refresh } from "../router.js";
 import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
+import { premiumActive, upsell } from "../ui/premium.js";
 
 export function renderGoals(view) {
   const s = get();
@@ -95,7 +96,17 @@ function goalCard(g) {
 
 /* ---------- New goal ---------- */
 
+const FREE_GOAL_LIMIT = 3;
+
 function openNewGoal() {
+  // Honour-system gate: goals live in localStorage, so this can be flipped in
+  // devtools. Only the ACTIVE (unfinished) goals count toward the free cap, so
+  // finishing one always frees a slot.
+  const activeCount = get().goals.filter((g) => !g.completedAt && g.saved < g.target).length;
+  if (activeCount >= FREE_GOAL_LIMIT && !premiumActive()) {
+    upsell("Unlimited goals", `Free accounts track ${FREE_GOAL_LIMIT} goals at once. Premium removes the cap.`);
+    return;
+  }
   openSheet(`
     <h2 class="sheet-title">New goal</h2>
     <div class="cat-grid">
