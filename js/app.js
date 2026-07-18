@@ -1,6 +1,6 @@
 /* Budget Bear — entry point: nav, routes, accounts-first boot */
 
-import { get } from "./store.js";
+import { get, update } from "./store.js";
 import * as router from "./router.js";
 import { renderHome } from "./screens/home.js";
 import { renderGoals } from "./screens/goals.js";
@@ -61,7 +61,19 @@ router.register("/join/:code", renderJoin);
 
 router.setGuard((path) => {
   const signedIn = !!currentUser();
-  const { demo, onboarded } = get().profile;
+  const s = get();
+  const { demo } = s.profile;
+  let { onboarded } = s.profile;
+
+  // Self-heal: a device can end up with a real budget already built (categories,
+  // income) while the `onboarded` flag itself is somehow still false — that
+  // desync previously sent a signed-in user with saved progress back through
+  // the "build a budget or demo" wizard on every visit. Real budget content is
+  // the more trustworthy signal, so treat it as onboarded and persist the fix.
+  if (!onboarded && (s.budget.categories.length > 0 || s.income.monthly > 0)) {
+    onboarded = true;
+    update((st) => { st.profile.onboarded = true; });
+  }
 
   // Accounts are the front door. Only the auth screen and invite links are
   // reachable without an account or the demo (join links route through auth
