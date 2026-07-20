@@ -87,11 +87,15 @@ export function flexibleRemaining() {
   return { limit, spent, remaining: limit - spent };
 }
 
-/** Daily allowance = flexible money remaining ÷ days left in month. */
+/** Daily allowance = flexible money remaining ÷ days left in month.
+    `remaining` already excludes today's flexible spend, so the daily figure is
+    derived from `remaining + spentToday` (the day's budget before today
+    happened); `leftToday = perDay − spentToday` then subtracts today's spend
+    exactly once. (Dividing `remaining` directly and *also* subtracting
+    spentToday double-counted the day's spending.) */
 export function dailyAllowance() {
   const { remaining } = flexibleRemaining();
   const days = daysLeftInMonth();
-  const perDay = remaining / days;
   const spentToday = get().transactions
     .filter((t) => t.date === todayISO())
     .filter((t) => {
@@ -99,6 +103,7 @@ export function dailyAllowance() {
       return cat && !cat.essential && cat.id !== "savings";
     })
     .reduce((a, t) => a + t.amount, 0);
+  const perDay = (remaining + spentToday) / days;
   return {
     perDay: Math.max(0, perDay),
     leftToday: Math.max(0, perDay - spentToday),

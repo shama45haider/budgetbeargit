@@ -2,10 +2,17 @@
 
 import { get } from "./store.js";
 
+/** Weeks in an average month. One source of truth for every weekly⇄monthly
+    conversion (goals pacing, reviews, home targets) so the figures always agree. */
+export const WEEKS_PER_MONTH = 4.345;
+
 export function money(n, { sign = false, decimals = "auto" } = {}) {
   const cur = get().profile.currency || "$";
   const abs = Math.abs(n);
-  const useDecimals = decimals === "auto" ? abs % 1 !== 0 && abs < 10000 : decimals;
+  // Show cents whenever the value is fractional. (Previously suppressed above
+  // $10k, which silently rounded e.g. $10,000.50 to $10,001 — numbers must be
+  // exact, so no size threshold.)
+  const useDecimals = decimals === "auto" ? abs % 1 !== 0 : decimals;
   const num = abs.toLocaleString("en-US", {
     minimumFractionDigits: useDecimals ? 2 : 0,
     maximumFractionDigits: useDecimals ? 2 : 0,
@@ -96,9 +103,18 @@ export function escUrl(url) {
   return /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\//i.test(s) ? esc(s) : "";
 }
 
-/** Months between now and an ISO date (fractional, min 0). */
+/** Months between now and an ISO date (fractional, min 0). Compares date-to-date
+    (both floored to local midnight) so the result is stable through the day —
+    otherwise the time-of-day on `now` made requiredMonthly drift hour to hour. */
 export function monthsUntil(iso) {
-  const now = new Date();
+  const today = parseISO(todayISO());
   const d = parseISO(iso);
-  return Math.max(0, (d - now) / (86400000 * 30.44));
+  return Math.max(0, (d - today) / (86400000 * 30.44));
+}
+
+/** How far through the current month we are, 0–1, using the real number of days
+    in the month. One shared definition so every "at this pace" projection agrees
+    (previously insights divided by a flat 30.44, which exceeded 1.0 on the 31st). */
+export function monthProgress(date = new Date()) {
+  return date.getDate() / daysInMonth(date);
 }

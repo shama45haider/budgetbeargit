@@ -390,14 +390,22 @@ insert into public.shop_items (id, price) values
   ('flair-mint', 150), ('flair-sunset', 250), ('flair-ocean', 250),
   ('flair-night', 300), ('flair-lava', 400), ('flair-rainbow', 500),
   ('flair-aurora', 550), ('flair-gold', 600),
+  -- high-end animated flairs
+  ('flair-prism', 850), ('flair-molten', 1000), ('flair-galaxy', 1200),
   ('tag-penny', 100), ('tag-coupon', 150), ('tag-machine', 200),
   ('tag-stacking', 200), ('tag-bse', 250), ('tag-slayer', 300),
   ('tag-millionaire', 350), ('tag-ceo', 400),
+  -- high-end tags (premium treatments)
+  ('tag-legend', 550), ('tag-diamond', 700), ('tag-goat', 900),
   ('fx-shimmer', 300), ('fx-wave', 450), ('fx-gold', 500),
   ('fx-rainbow', 600), ('fx-sparkle', 700), ('fx-frost', 900),
+  -- high-end name effects
+  ('fx-plasma', 1100), ('fx-ember', 1300), ('fx-prismatic', 1600),
   ('theme-midnight', 800), ('theme-sakura', 800),
   ('theme-ocean', 800), ('theme-royal', 1500),
   ('theme-amethyst', 800), ('theme-moneyrain', 1200), ('theme-crimson', 800),
+  -- high-end themes with signature ambient effects
+  ('theme-obsidian', 1800), ('theme-emerald', 2000), ('theme-aurora', 2500),
   -- price 999999 = not for sale: won on the Daily Spin or granted to supporters
   ('flair-lucky', 999999), ('tag-jackpot', 999999),
   ('flair-crown', 999999), ('tag-supporter', 999999)

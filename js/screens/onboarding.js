@@ -11,6 +11,28 @@ import { checkAchievements } from "../engine/points.js";
 
 const answers = {};
 let index = 0;
+// The plan the user reviews on the final step. Computed once when they reach it
+// (from computePlan), then edited in place — so live edits to category amounts
+// aren't clobbered by computePlan re-deriving `shopping`/`free` on every render.
+let editablePlan = null;
+
+/* A colored emoji per step — makes the wizard feel lively and fresh. The tint is
+   mixed with the current surface (via CSS color-mix in .wizard-icon), so it reads
+   well in every light/dark theme rather than being a fixed pastel. */
+const STEP_ICON = {
+  name:          { emoji: "👋", c: "#3E7A4D" },
+  income:        { emoji: "💵", c: "#2E9E5B" },
+  schedule:      { emoji: "📅", c: "#3D6B8E" },
+  housing:       { emoji: "🏠", c: "#E8813A" },
+  utilities:     { emoji: "💡", c: "#D9A521" },
+  groceries:     { emoji: "🛒", c: "#3E9E6B" },
+  transport:     { emoji: "🚗", c: "#3D6B8E" },
+  subscriptions: { emoji: "📺", c: "#8B5FC7" },
+  dining:        { emoji: "🍽️", c: "#C6537A" },
+  cushion:       { emoji: "🛟", c: "#2F9BC0" },
+  savings:       { emoji: "🌱", c: "#2E9E5B" },
+  goal:          { emoji: "🎯", c: "#C9A227" },
+};
 
 const PAY_SCHEDULES = [
   { value: "weekly", label: "Weekly" },
@@ -107,6 +129,7 @@ const STEPS = [
 
 export function renderOnboarding(view) {
   index = 0;
+  editablePlan = null;
   for (const k of Object.keys(answers)) delete answers[k];
 
   view.innerHTML = `
@@ -210,6 +233,7 @@ function renderStep(view) {
 
   else if (step.kind === "goal") {
     body.innerHTML = `
+      ${stepIconHTML("goal")}
       <h1 class="wizard-title">What's the first thing you'd like to save toward?</h1>
       <div class="wizard-goal-grid">
         ${GOAL_OPTIONS.map((g) => `
@@ -229,27 +253,63 @@ function renderStep(view) {
   }
 
   else if (step.kind === "summary") {
-    const plan = computePlan();
+    // Compute the plan once on arrival, then edit it in place (see editablePlan
+    // note above). Recomputed each time the step is (re)rendered so changing an
+    // earlier answer and returning reflects it.
+    editablePlan = computePlan();
     body.innerHTML = `
+      <div class="wizard-icon" style="--c:#2E9E5B">🎉</div>
       <h1 class="wizard-title">Here's your plan, ${esc(answers.name)}.</h1>
-      <p class="wizard-subtitle">You can change any of this later — nothing is locked in.</p>
+      <p class="wizard-subtitle">Tap any amount to fine-tune it — nothing is locked in.</p>
       <div class="wizard-summary-card">
-        ${plan.categories.map((c) => `<div class="row-item"><span>${c.icon} ${esc(c.name)}</span><strong class="t-num">${money(c.limit)}</strong></div>`).join("")}
+        ${editablePlan.categories.map((c, i) => `
+          <div class="row-item wizard-edit-row">
+            <span>${c.icon} ${esc(c.name)}</span>
+            <div class="amount-input-wrap wizard-edit-amount">
+              <span class="currency">$</span>
+              <input class="input" inputmode="decimal" data-cat-idx="${i}"
+                aria-label="${esc(c.name)} monthly budget" value="${c.limit}">
+            </div>
+          </div>`).join("")}
       </div>
       <div class="wizard-summary-card total">
         <div class="row-item"><span>Monthly income</span><strong class="t-num">${money(answers.income)}</strong></div>
-        <div class="row-item"><span>Left over each month</span><strong class="t-num">${money(plan.free)}</strong></div>
+        <div class="row-item"><span>Left over each month</span><strong class="t-num" id="wz-leftover">${money(planFree(editablePlan))}</strong></div>
       </div>
-      ${plan.goal ? `<div class="wizard-summary-card"><div class="row-item"><span>${plan.goal.icon} ${esc(plan.goal.name)} goal</span><strong class="t-num">${money(plan.goal.target)} by ${new Date(plan.goal.deadline).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</strong></div></div>` : ""}
+      ${editablePlan.goal ? `<div class="wizard-summary-card"><div class="row-item"><span>${editablePlan.goal.icon} ${esc(editablePlan.goal.name)} goal</span><strong class="t-num">${money(editablePlan.goal.target)} by ${new Date(editablePlan.goal.deadline).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</strong></div></div>` : ""}
     `;
+    const leftoverEl = body.querySelector("#wz-leftover");
+    const syncLeftover = () => {
+      const free = planFree(editablePlan);
+      leftoverEl.textContent = money(free);
+      leftoverEl.classList.toggle("t-neg", free < 0);
+    };
+    body.querySelectorAll("input[data-cat-idx]").forEach((inp) => {
+      inp.addEventListener("input", () => {
+        const v = parseFloat(inp.value.replace(/[^0-9.]/g, ""));
+        editablePlan.categories[+inp.dataset.catIdx].limit = isNaN(v) || v < 0 ? 0 : v;
+        syncLeftover();
+      });
+    });
+    syncLeftover();
     continueBtn.disabled = false;
   }
+}
+
+/** Income minus every category limit — the live "left over each month". */
+function planFree(plan) {
+  return answers.income - plan.categories.reduce((a, c) => a + c.limit, 0);
+}
+
+function stepIconHTML(id) {
+  const ic = STEP_ICON[id];
+  return ic ? `<div class="wizard-icon" style="--c:${ic.c}">${ic.emoji}</div>` : "";
 }
 
 function fieldShellHTML(step) {
   const title = typeof step.title === "function" ? step.title(answers) : step.title;
   const subtitle = typeof step.subtitle === "function" ? step.subtitle(answers) : step.subtitle;
-  return `<h1 class="wizard-title">${title}</h1>${subtitle ? `<p class="wizard-subtitle">${subtitle}</p>` : ""}`;
+  return `${stepIconHTML(step.id)}<h1 class="wizard-title">${title}</h1>${subtitle ? `<p class="wizard-subtitle">${subtitle}</p>` : ""}`;
 }
 
 function welcomeHTML() {
@@ -335,7 +395,9 @@ function loadDemo() {
 }
 
 function buildPlan() {
-  const plan = computePlan();
+  // Use the plan the user actually reviewed/edited on the summary step; fall
+  // back to a fresh compute only if we somehow arrived here without it.
+  const plan = editablePlan || computePlan();
 
   const goals = [];
   if (plan.goal) {

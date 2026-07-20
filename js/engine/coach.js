@@ -3,7 +3,7 @@
    Every answer is computed from the user's real numbers and shows its reasoning. */
 
 import { get } from "../store.js";
-import { money, esc, monthLabel } from "../format.js";
+import { money, esc, monthLabel, WEEKS_PER_MONTH } from "../format.js";
 import {
   dailyAllowance, upcomingBills, cashFlow, flexibleRemaining,
   subscriptions, spentThisMonth, totalDebt, emergencyFundMonths,
@@ -212,7 +212,7 @@ function planAnswer(thing, target, downPct = null) {
     }
   }
   steps.push(`<strong>Monthly:</strong> auto-transfer ${money(capacity)} on payday, before it can be spent.`);
-  steps.push(`<strong>Weekly:</strong> that's ${money(capacity / 4.345)}/week — check progress each Sunday.`);
+  steps.push(`<strong>Weekly:</strong> that's ${money(capacity / WEEKS_PER_MONTH)}/week — check progress each Sunday.`);
   steps.push(`<strong>Milestones:</strong> 25% by ${milestone(months, 0.25)}, 50% by ${milestone(months, 0.5)}, done around ${eta.toLocaleDateString("en-US", { month: "long", year: "numeric" })}.`);
 
   return {

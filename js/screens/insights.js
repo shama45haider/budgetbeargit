@@ -110,18 +110,28 @@ export function renderInsights(view) {
     }));
 }
 
-/** Locked teaser shown to free accounts in place of the forecast/scenarios. */
+/** Locked teaser shown to free accounts in place of the forecast/scenarios.
+    Shows a REAL computed one-year projection (the math isn't gated) so the value
+    is concrete, then lists what Premium unlocks. */
 function premiumTeaser() {
+  const base = project(12);
+  const end = base[base.length - 1];
+  const start = base[0];
+  const headline = end > 0 && end > start
+    ? `You're on track for about <strong class="t-num">${moneyShort(end)}</strong> saved a year from now`
+    : `See exactly where your money is headed`;
   return `
-    <button class="card" id="ins-premium" style="width:100%;text-align:left;border-style:dashed">
+    <button class="card premium-teaser" id="ins-premium" style="width:100%;text-align:left">
       <div class="row" style="align-items:flex-start">
         <span style="font-size:22px">✨</span>
         <div class="grow">
-          <div style="font-weight:var(--fw-semibold)">See your money a year out</div>
-          <div class="t-small t-secondary" style="margin-top:2px">
-            Premium adds a 12-month forecast, what-if scenarios, a debt payoff planner, and the weekly review.</div>
+          <div style="font-weight:var(--fw-semibold)">${headline}</div>
+          <div class="t-small t-secondary" style="margin-top:4px">
+            Unlock the full 12-month forecast, <strong>what-if scenarios</strong>
+            (a raise, a big purchase, paying debt off faster), a debt payoff planner,
+            and the weekly review — with Premium.</div>
+          <div class="t-small" style="margin-top:8px;color:var(--green-700);font-weight:var(--fw-semibold)">See what Premium shows ›</div>
         </div>
-        <span class="chev">›</span>
       </div>
     </button>`;
 }

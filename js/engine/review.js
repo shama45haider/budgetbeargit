@@ -1,7 +1,7 @@
 /* Budget Bear — weekly review generator: wins, watch-outs, trends, next week's priorities. */
 
 import { get } from "../store.js";
-import { money, todayISO, parseISO } from "../format.js";
+import { money, todayISO, parseISO, WEEKS_PER_MONTH } from "../format.js";
 import { spentThisMonth, flexibleRemaining, upcomingBills } from "./metrics.js";
 import { goalStats } from "./goals.js";
 import { insights } from "./insights.js";
@@ -76,7 +76,7 @@ export function weeklyReview() {
   if (activeGoal) {
     const st = goalStats(activeGoal);
     if (!st.complete && st.requiredMonthly) {
-      priorities.push(`Put ${money(st.requiredMonthly / 4.345)} toward ${activeGoal.name}.`);
+      priorities.push(`Put ${money(st.requiredMonthly / WEEKS_PER_MONTH)} toward ${activeGoal.name}.`);
     }
   }
   if (!priorities.length) priorities.push("Keep your daily check-in streak going.");

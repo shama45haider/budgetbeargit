@@ -355,15 +355,58 @@
 .user-tag {
   display: inline-flex;
   align-items: center;
-  padding: 2px 9px;
+  gap: 4px;
+  padding: 3px 10px;
   border-radius: var(--r-full);
-  background: color-mix(in srgb, var(--tag, var(--green-600)) 12%, #ffffff);
-  border: 1px solid color-mix(in srgb, var(--tag, var(--green-600)) 35%, #ffffff);
-  color: var(--tag, var(--green-800));
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--tag, var(--green-600)) 26%, var(--surface)),
+    color-mix(in srgb, var(--tag, var(--green-600)) 11%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--tag, var(--green-600)) 46%, transparent);
+  color: color-mix(in srgb, var(--tag, var(--green-600)) 72%, var(--text));
   font-size: var(--fs-11);
   font-weight: var(--fw-bold);
+  letter-spacing: 0.01em;
   white-space: nowrap;
   flex-shrink: 0;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 45%, transparent),
+    0 1px 2px color-mix(in srgb, var(--tag, var(--green-600)) 28%, transparent);
+}
+.user-tag .tag-glyph { font-size: 0.92em; line-height: 1; }
+
+/* Filled gradient — bold, high-contrast. */
+.user-tag.tag-gradient {
+  color: #fff;
+  background: linear-gradient(135deg, var(--tag), color-mix(in srgb, var(--tag) 58%, #000 12%));
+  border-color: transparent;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+}
+/* Metallic — brushed sheen sweeping across, tinted by --tag (gold, silver…). */
+.user-tag.tag-metal {
+  color: color-mix(in srgb, var(--tag) 62%, #000);
+  background: linear-gradient(120deg,
+    color-mix(in srgb, var(--tag) 55%, #fff),
+    #ffffff 40%,
+    color-mix(in srgb, var(--tag) 72%, #000 6%) 58%,
+    color-mix(in srgb, var(--tag) 55%, #fff));
+  background-size: 220% 100%;
+  border-color: color-mix(in srgb, var(--tag) 60%, #000 8%);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+  animation: tag-sheen 4s linear infinite;
+}
+/* Holographic — iridescent color drift, the top rarity look. */
+.user-tag.tag-holo {
+  color: #2a2036;
+  background: linear-gradient(100deg, #ffd1f0, #c8e0ff, #c6ffe6, #fff3c4, #ffd1f0);
+  background-size: 300% 100%;
+  border-color: rgba(178, 150, 220, 0.65);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+  animation: tag-holo 5s linear infinite;
+}
+@keyframes tag-sheen { from { background-position: 200% 0; } to { background-position: -60% 0; } }
+@keyframes tag-holo  { from { background-position: 0 0; }    to { background-position: 300% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .user-tag.tag-metal, .user-tag.tag-holo { animation: none !important; }
 }
 
 /* ------- Name effects (GPU-friendly: background-position/opacity/transform) ------- */
@@ -430,8 +473,37 @@
   50% { opacity: 1; transform: scale(1.1) rotate(40deg); }
 }
 
+/* High-end name effects */
+.fx-plasma {
+  background: linear-gradient(100deg, #7f5fff, #ff6ec4 30%, #4adede 55%, #ff6ec4 75%, #7f5fff);
+  background-size: 320% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: fx-slide 3.2s linear infinite;
+}
+.fx-ember {
+  background: linear-gradient(100deg, #7a1500, #ff5e00 35%, #ffd23f 52%, #ff5e00 68%, #7a1500);
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: fx-slide 2.8s linear infinite;
+  filter: drop-shadow(0 0 5px rgba(255, 94, 0, 0.4));
+}
+.fx-prismatic {
+  background: linear-gradient(100deg, #ff5f6d, #ffc371, #7FC96A, #2193b0, #c86dd7, #ff5f6d);
+  background-size: 400% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: fx-slide 2.4s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(200, 109, 215, 0.45));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fx-shimmer, .fx-rainbow, .fx-gold, .fx-frost, .fx-wave,
+  .fx-plasma, .fx-ember, .fx-prismatic,
   .fx-sparkle::before, .fx-sparkle::after {
     animation: none !important;
   }
@@ -447,18 +519,45 @@
   height: 250px;
   margin: 18px auto 0;
 }
+/* Bulb ring around the wheel — a masked repeating-conic gradient reads as
+   little lights. */
+.spin-rim {
+  position: absolute;
+  inset: -11px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -1.5deg,
+    #ffe89a 0deg 2deg, #b98b18 2deg 3.6deg, transparent 3.6deg 22.5deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 13px), #000 calc(100% - 12px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 13px), #000 calc(100% - 12px));
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+  animation: spin-rim-pulse 1.5s ease-in-out infinite;
+}
+@keyframes spin-rim-pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+
 .spin-pointer {
   position: absolute;
-  top: -6px;
+  top: -12px;
   left: 50%;
   transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-top: 20px solid var(--text);
-  z-index: 3;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+  border-left: 13px solid transparent;
+  border-right: 13px solid transparent;
+  border-top: 24px solid #ffd23f;
+  z-index: 4;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+.spin-pointer::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6cf, #e0a51f);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .spin-wheel {
   position: relative;
@@ -466,9 +565,20 @@
   height: 100%;
   border-radius: 50%;
   border: 6px solid var(--surface);
-  box-shadow: 0 0 0 2px var(--border), var(--shadow-3);
+  box-shadow: 0 0 0 3px #d9b64e, var(--shadow-3), inset 0 0 22px rgba(0, 0, 0, 0.28);
   will-change: transform;
   overflow: hidden;
+}
+/* Fixed glossy highlight that does not rotate with the wheel. */
+.spin-glass {
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  background:
+    radial-gradient(circle at 50% 26%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 42%),
+    radial-gradient(circle at 50% 118%, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 42%);
 }
 .spin-label {
   position: absolute;
@@ -482,7 +592,7 @@
   font-weight: var(--fw-bold);
   font-size: var(--fs-14);
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .spin-hub {
   position: absolute;
@@ -492,17 +602,67 @@
   height: 62px;
   border-radius: 50%;
   background: var(--surface);
-  border: 3px solid var(--border);
+  border: 3px solid #d9b64e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 0 0 2px var(--surface);
   display: grid;
   place-items: center;
-  z-index: 2;
+  z-index: 3;
+}
+
+/* Glowing Spin button + win celebration */
+.spin-overlay #spin-go {
+  animation: spin-go-pulse 1.8s ease-in-out infinite;
+}
+@keyframes spin-go-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green-600) 45%, transparent); }
+  50% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--green-600) 0%, transparent); }
+}
+.achievement-card.spin-win { animation: spin-pop 0.5s var(--ease-out); }
+@keyframes spin-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+.spin-burst {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: visible;
+}
+.spin-burst i {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--cc, #7FC96A);
+  opacity: 0;
+  animation: confetti-fly 1s var(--ease-out) var(--d, 0s) forwards;
+}
+@keyframes confetti-fly {
+  0% { opacity: 1; transform: translate(-50%, -50%) rotate(0); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--r)); }
 }
 
 /* Home entry card */
 .spin-cta {
   margin-top: 12px;
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(120deg, var(--tint), var(--surface) 70%);
   border-color: var(--green-100);
+}
+/* Slow sheen sweep so the teaser looks alive. */
+.spin-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%, color-mix(in srgb, var(--green-400) 22%, transparent) 50%, transparent 62%);
+  transform: translateX(-120%);
+  animation: spin-cta-sheen 4.5s ease-in-out 1s infinite;
 }
 .spin-cta .icon-bubble {
   animation: spin-tease 5s var(--ease-inout) infinite;
@@ -513,6 +673,10 @@
   92% { transform: rotate(12deg); }
   96% { transform: rotate(-6deg); }
 }
+@keyframes spin-cta-sheen {
+  0%, 70% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
 
 /* Animated flair keyframes (Lucky Clover, Aurora Crown) */
 @keyframes flair-flow {
@@ -521,7 +685,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spin-cta .icon-bubble { animation: none; }
+  .spin-cta .icon-bubble,
+  .spin-cta::after,
+  .spin-rim,
+  .spin-overlay #spin-go,
+  .achievement-card.spin-win,
+  .spin-burst i { animation: none !important; }
 }
 
 /* ------- Plans ------- */

@@ -1,7 +1,7 @@
 /* Budget Bear — Home: "What should I do today?" */
 
 import { get } from "../store.js";
-import { money, esc, greeting, relativeDay, monthLabel } from "../format.js";
+import { money, esc, greeting, relativeDay, monthLabel, WEEKS_PER_MONTH } from "../format.js";
 import { dailyAllowance, upcomingBills } from "../engine/metrics.js";
 import { healthScore } from "../engine/health.js";
 import { topRecommendation } from "../engine/insights.js";
@@ -152,8 +152,15 @@ function todayPlanRows(da, bills, goal) {
   if (next) rows.push(row("🔔", `${esc(next.name)} — ${relativeDay(next.dueDate)}`, next.autopay ? "Autopay scheduled" : "Plan for it", money(next.amount)));
   if (goal) {
     const st = goalStats(goal);
-    if (!st.complete && st.requiredMonthly) {
-      rows.push(row(goal.icon, `Save toward ${esc(goal.name)}`, "Weekly target", money(st.requiredMonthly / 4.345)));
+    if (!st.complete) {
+      if (st.cadence) {
+        const c = st.cadence;
+        const label = c.type === "day" ? "Today" : "This week";
+        const meta = (c.metThisPeriod ? `Done ${c.unit}` : label) + (c.streak > 0 ? ` · 🔥 ${c.streak}` : "");
+        rows.push(row(goal.icon, `Save toward ${esc(goal.name)}`, meta, c.metThisPeriod ? "✓" : money(c.remaining)));
+      } else if (st.requiredMonthly) {
+        rows.push(row(goal.icon, `Save toward ${esc(goal.name)}`, "Weekly target", money(st.requiredMonthly / WEEKS_PER_MONTH)));
+      }
     }
   }
   rows.push(row("☕", "Fun money today", "Try to stay under", money(da.leftToday)));

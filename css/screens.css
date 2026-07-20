@@ -97,6 +97,45 @@
 .wizard-title { margin-bottom: var(--sp-2); }
 .wizard-subtitle { color: var(--text-2); font-size: var(--fs-15); margin-bottom: var(--sp-6); line-height: 1.45; }
 
+/* Colored emoji badge at the top of each step. Tint (--c) is mixed with the
+   surface so it stays legible in every light/dark theme. */
+.wizard-icon {
+  width: 56px; height: 56px;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  line-height: 1;
+  border-radius: 18px;
+  margin-bottom: var(--sp-4);
+  background: color-mix(in srgb, var(--c, var(--green-600)) 15%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--c, var(--green-600)) 34%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--c, var(--green-600)) 22%, transparent);
+  animation: wizard-icon-in var(--dur-slow) var(--ease-out);
+}
+@keyframes wizard-icon-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.9); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wizard-icon { animation: none; }
+}
+
+/* Editable amount rows on the summary step. */
+.wizard-summary-card .row-item.wizard-edit-row {
+  align-items: center;
+  padding: 8px 10px 8px 15px;
+}
+.wizard-edit-amount {
+  width: 118px;
+  flex-shrink: 0;
+}
+.wizard-edit-amount .input {
+  min-height: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+}
+
 .wizard-footer {
   flex-shrink: 0;
   padding: var(--sp-3) 0 calc(var(--sp-4) + var(--safe-b));
@@ -397,6 +436,37 @@
   margin-bottom: 2px;
 }
 .goal-stats strong { font-size: var(--fs-13); }
+
+/* Streak chip on goal cards — lights up when this period's pace is met. */
+.streak-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-11);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  vertical-align: middle;
+  color: var(--text-2);
+  background: color-mix(in srgb, #ff8a3d 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, #ff8a3d 28%, transparent);
+}
+.streak-chip.lit {
+  color: #b4530e;
+  background: color-mix(in srgb, #ff8a3d 26%, var(--surface));
+  border-color: color-mix(in srgb, #ff8a3d 45%, transparent);
+}
+
+/* Premium forecast teaser (Insights, free accounts) */
+.premium-teaser {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--green-400) 14%, var(--surface)),
+    var(--surface) 70%);
+  border-color: color-mix(in srgb, var(--green-500) 40%, var(--border));
+  transition: transform var(--dur-fast), border-color var(--dur-fast);
+}
+.premium-teaser:active { transform: scale(0.99); }
 
 /* ------- Profile ------- */
 

@@ -2,7 +2,7 @@
    Turns the numbers into short, useful observations. */
 
 import { get } from "../store.js";
-import { money } from "../format.js";
+import { money, monthProgress as monthProgressFor } from "../format.js";
 import {
   spentThisMonth, spentInMonth, lastMonthKeys, dailyAllowance,
   subscriptions, flexibleRemaining, cashFlow,
@@ -14,7 +14,9 @@ export function insights() {
   const s = get();
   const out = [];
   const dayOfMonth = new Date().getDate();
-  const monthProgress = dayOfMonth / 30.44;
+  // Real days-in-month (shared helper), so "at this pace" projections never
+  // exceed 100% on a 31-day month and agree with the daily-allowance engine.
+  const monthProgress = monthProgressFor();
 
   // --- Category pace: over/under budget relative to how far through the month we are
   for (const cat of s.budget.categories) {

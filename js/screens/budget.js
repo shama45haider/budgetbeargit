@@ -61,7 +61,7 @@ export function renderBudget(view) {
               <h3 style="font-size:var(--fs-15)">Savings</h3>
               <div class="t-small t-secondary">${money(savedThisMonth)} of ${money(savings.limit)} moved this month</div>
             </div>
-            <button class="btn btn-sm btn-secondary" id="btn-log-savings">Log</button>
+            <button class="btn btn-sm btn-secondary" id="btn-log-savings">Move money in</button>
           </div>
         </div>` : ""}
     </div>
@@ -101,7 +101,7 @@ export function renderBudget(view) {
   view.querySelector("#btn-add-tx").addEventListener("click", () => openAddTx());
   view.querySelector("#btn-edit-budget").addEventListener("click", openEditBudget);
   view.querySelector("#btn-add-bill").addEventListener("click", () => openBillSheet());
-  view.querySelector("#btn-log-savings")?.addEventListener("click", () => openAddTx("savings"));
+  view.querySelector("#btn-log-savings")?.addEventListener("click", () => openMoveToSavings());
   view.querySelectorAll("[data-bill]").forEach((el) =>
     el.addEventListener("click", () => openBillSheet(el.dataset.bill)));
   view.querySelectorAll("[data-tx]").forEach((el) =>
@@ -136,7 +136,9 @@ function ordinal(n) {
 /* ---------- Add transaction (2 taps: category → amount) ---------- */
 
 export function openAddTx(presetCat = null) {
-  const cats = get().budget.categories;
+  // Savings has its own dedicated "Move money in" entrance, so it's excluded
+  // here — this sheet is only for spending categories.
+  const cats = get().budget.categories.filter((c) => c.id !== "savings");
   openSheet(`
     <h2 class="sheet-title">Add expense</h2>
     <div class="cat-grid">
@@ -180,6 +182,50 @@ export function openAddTx(presetCat = null) {
         });
         close();
         toast(cat === "savings" ? "Savings logged" : "Expense added");
+        checkAchievements();
+        refresh();
+      });
+    },
+  });
+}
+
+/* ---------- Move to savings (amount-only, distinct from Add expense) ---------- */
+
+export function openMoveToSavings() {
+  const savings = get().budget.categories.find((c) => c.id === "savings");
+  const moved = spentThisMonth("savings", { includeSavings: true });
+  openSheet(`
+    <h2 class="sheet-title">🌱 Move to savings</h2>
+    <p class="t-small t-secondary" style="margin-bottom:14px">
+      Set money aside toward your cushion.${savings ? ` ${money(moved)} of ${money(savings.limit)} moved this month.` : ""}
+    </p>
+    <form id="mv-form">
+      <div class="amount-input-wrap">
+        <span class="currency">$</span>
+        <input class="input" id="mv-amount" inputmode="decimal" placeholder="0.00" autocomplete="off" required>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:14px" disabled id="mv-save">Move to savings</button>
+    </form>
+  `, {
+    onOpen(sheet, close) {
+      const amountEl = sheet.querySelector("#mv-amount");
+      const save = sheet.querySelector("#mv-save");
+      const sync = () => {
+        const v = parseFloat(amountEl.value.replace(/[^0-9.]/g, ""));
+        save.disabled = isNaN(v) || v <= 0;
+      };
+      amountEl.addEventListener("input", sync);
+      setTimeout(() => amountEl.focus(), 350);
+      sheet.querySelector("#mv-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const amount = parseFloat(amountEl.value.replace(/[^0-9.]/g, ""));
+        if (isNaN(amount) || amount <= 0) return;
+        update((s) => {
+          s.transactions.unshift({ id: uid(), categoryId: "savings", amount, note: "Moved to savings", date: todayISO() });
+          s.settings.savingsBuffer = (s.settings.savingsBuffer || 0) + amount;
+        });
+        close();
+        toast("Moved to savings");
         checkAchievements();
         refresh();
       });

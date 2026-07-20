@@ -150,7 +150,7 @@ function swatch(item) {
     return `<span class="shop-swatch" style="background:${item.css}"></span>`;
   }
   if (item.type === "tag") {
-    return `<span class="user-tag" style="--tag:${item.color};margin:6px 0">${esc(item.name)}</span>`;
+    return `<span class="user-tag${item.style ? ` tag-${item.style}` : ""}" style="--tag:${item.color};margin:6px 0">${item.glyph ? `<span class="tag-glyph">${item.glyph}</span> ` : ""}${esc(item.name)}</span>`;
   }
   return `<span class="shop-fx ${item.cls}">Abc</span>`;
 }
@@ -167,7 +167,7 @@ function openItem(itemId, profile, view) {
     <h2 class="sheet-title">${esc(item.name)}</h2>
     <div style="display:grid;place-items:center;padding:18px;background:var(--off-white);border-radius:var(--r-md);margin-bottom:16px">
       ${item.type === "flair" ? `<span class="shop-swatch" style="background:${item.css};width:180px;height:56px"></span>` : ""}
-      ${item.type === "tag" ? `<span class="user-tag" style="--tag:${item.color};font-size:var(--fs-14);padding:6px 14px">${esc(item.name)}</span>` : ""}
+      ${item.type === "tag" ? `<span class="user-tag${item.style ? ` tag-${item.style}` : ""}" style="--tag:${item.color};font-size:var(--fs-14);padding:6px 14px">${item.glyph ? `<span class="tag-glyph">${item.glyph}</span> ` : ""}${esc(item.name)}</span>` : ""}
       ${item.type === "effect" ? `<span class="shop-fx ${item.cls}" style="font-size:var(--fs-22)">${esc(profile.display_name)}</span>` : ""}
       ${item.type === "theme" ? `<span class="theme-swatch" style="width:200px;--mock-bg:${item.mock.bg};--mock-surface:${item.mock.surface};--mock-accent:${item.mock.accent}"><span class="mock-dot"></span></span>` : ""}
     </div>

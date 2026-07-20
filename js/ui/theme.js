@@ -11,6 +11,9 @@ const THEME_COLOR = {
   "theme-amethyst": "#f7f3fc",
   "theme-moneyrain": "#0c1410",
   "theme-crimson": "#160e0e",
+  "theme-obsidian": "#0a0a0e",
+  "theme-emerald": "#08140f",
+  "theme-aurora": "#070c14",
 };
 
 const CACHE_KEY = "bb.theme";
@@ -125,6 +128,26 @@ function mountFx(id) {
     for (let i = 0; i < 8; i++) addSpan("", {
       "--x": rand(3, 95) + "%", "--size": rand(3, 7) + "px",
       "--dur": rand(7, 12) + "s", "--delay": -rand(0, 10) + "s",
+    });
+  } else if (id === "theme-obsidian") {
+    addSpan("fx-sweep", {});
+    for (let i = 0; i < 6; i++) addSpan("", {
+      "--x": rand(4, 93) + "%", "--size": rand(9, 18) + "px",
+      "--dur": rand(13, 20) + "s", "--delay": -rand(0, 18) + "s",
+    });
+  } else if (id === "theme-emerald") {
+    for (let i = 0; i < 7; i++) addSpan("", {
+      "--x": rand(3, 94) + "%", "--size": rand(7, 15) + "px",
+      "--dur": rand(12, 19) + "s", "--delay": -rand(0, 17) + "s",
+    });
+  } else if (id === "theme-aurora") {
+    for (let i = 0; i < 3; i++) addSpan("fx-ribbon", {
+      "--top": rand(6, 46) + "%", "--hue": Math.round(rand(120, 260)),
+      "--dur": rand(11, 18) + "s", "--delay": -rand(0, 12) + "s",
+    });
+    for (let i = 0; i < 10; i++) addSpan("fx-star", {
+      "--x": rand(3, 96) + "%", "--y": rand(6, 88) + "%",
+      "--dur": rand(3, 6) + "s", "--delay": -rand(0, 5) + "s",
     });
   }
 

@@ -1,8 +1,8 @@
 /* Budget Bear — Goals: create, track, contribute. */
 
 import { get, update, uid } from "../store.js";
-import { money, esc, shortDate, todayISO } from "../format.js";
-import { goalStats, etaLabel, RISK_LABEL } from "../engine/goals.js";
+import { money, esc, shortDate, todayISO, WEEKS_PER_MONTH } from "../format.js";
+import { goalStats, etaLabel, RISK_LABEL, applyCadenceContribution } from "../engine/goals.js";
 import { openSheet, toast, confirmSheet, animateNumbers } from "../ui/components.js";
 import { GOAL_TEMPLATES } from "../data/categories.js";
 import { awardContribution, checkAchievements } from "../engine/points.js";
@@ -66,12 +66,17 @@ function goalCard(g) {
   const st = goalStats(g);
   const p = Math.round(st.completion * 100);
   const risk = RISK_LABEL[st.risk];
+  const cad = st.cadence;
+  // Middle stat becomes the pace when a cadence is set; otherwise needed/mo.
+  const midStat = cad
+    ? `<div><small>Per ${cad.type}</small><strong class="t-num">${money(cad.target)}</strong></div>`
+    : `<div><small>Needed / mo ${infoDot("needed-monthly")}</small><strong class="t-num">${st.requiredMonthly ? money(st.requiredMonthly) : "—"}</strong></div>`;
   return `
     <div class="card">
       <div class="row" style="margin-bottom:12px">
         <div class="icon-bubble" style="width:44px;height:44px;border-radius:14px">${g.icon}</div>
         <div class="grow">
-          <h3>${esc(g.name)}</h3>
+          <h3>${esc(g.name)} ${cad && cad.streak > 0 ? `<span class="streak-chip ${cad.metThisPeriod ? "lit" : ""}">🔥 ${cad.streak}</span>` : ""}</h3>
           <div class="t-small t-secondary">${g.deadline ? "Target " + shortDate(g.deadline) : "No deadline"} · <span class="${risk.cls}">${risk.text}</span></div>
         </div>
         <button class="btn-ghost" style="padding:8px;min-height:auto" data-goal-menu="${g.id}" aria-label="Goal options">
@@ -86,12 +91,50 @@ function goalCard(g) {
       <div class="progress"><i style="width:${p}%"></i></div>
       <div class="goal-stats">
         <div><small>Est. finish</small><strong>${etaLabel(st.etaMonths)}</strong></div>
-        <div><small>Needed / mo ${infoDot("needed-monthly")}</small><strong class="t-num">${st.requiredMonthly ? money(st.requiredMonthly) : "—"}</strong></div>
+        ${midStat}
         <div><small>Remaining</small><strong class="t-num">${money(st.remaining)}</strong></div>
       </div>
       <div class="t-small t-secondary" style="margin:10px 0 12px">${esc(st.nextAction)}</div>
       <button class="btn btn-primary btn-block btn-sm" data-contribute="${g.id}">Add money</button>
     </div>`;
+}
+
+/* ---------- Cadence picker (shared by new + edit) ---------- */
+
+function cadencePickerHTML(cad) {
+  const type = cad?.type || "none";
+  const amt = cad?.amount ?? "";
+  return `
+    <div class="field"><label class="field-label">Savings pace <span class="t-secondary" style="font-weight:var(--fw-regular)">— builds a streak</span></label>
+      <div class="segmented" id="goal-cadence">
+        <button type="button" data-c="none" aria-pressed="${type === "none"}">Off</button>
+        <button type="button" data-c="week" aria-pressed="${type === "week"}">Per week</button>
+        <button type="button" data-c="day" aria-pressed="${type === "day"}">Per day</button>
+      </div>
+    </div>
+    <div class="field" id="goal-cadence-amt-wrap" ${type === "none" ? "hidden" : ""}>
+      <div class="amount-input-wrap"><span class="currency">$</span>
+        <input class="input" id="goal-cadence-amt" inputmode="decimal" placeholder="20" value="${amt}"></div>
+    </div>`;
+}
+
+/** Wire the picker; returns a getter that reads the chosen cadence at submit. */
+function bindCadencePicker(sheet) {
+  let type = sheet.querySelector('#goal-cadence [aria-pressed="true"]')?.dataset.c || "none";
+  const amtWrap = sheet.querySelector("#goal-cadence-amt-wrap");
+  sheet.querySelectorAll("#goal-cadence button").forEach((b) =>
+    b.addEventListener("click", () => {
+      sheet.querySelectorAll("#goal-cadence button").forEach((x) => x.setAttribute("aria-pressed", "false"));
+      b.setAttribute("aria-pressed", "true");
+      type = b.dataset.c;
+      amtWrap.hidden = type === "none";
+      if (type !== "none") sheet.querySelector("#goal-cadence-amt").focus();
+    }));
+  return () => {
+    if (type === "none") return null;
+    const amt = parseFloat(sheet.querySelector("#goal-cadence-amt").value.replace(/[^0-9.]/g, ""));
+    return amt > 0 ? { type, amount: amt } : null;
+  };
 }
 
 /* ---------- New goal ---------- */
@@ -128,12 +171,14 @@ function openNewGoal() {
           <button type="button" data-p="medium" aria-pressed="true">Medium</button>
           <button type="button" data-p="low" aria-pressed="false">Low</button>
         </div></div>
+      ${cadencePickerHTML(null)}
       <button class="btn btn-primary btn-block">Create goal</button>
     </form>
   `, {
     onOpen(sheet, close) {
       let icon = "🎯";
       let priority = "medium";
+      const readCadence = bindCadencePicker(sheet);
       const nameEl = sheet.querySelector("#goal-name");
       sheet.querySelectorAll(".cat-tile").forEach((b) =>
         b.addEventListener("click", () => {
@@ -156,8 +201,14 @@ function openNewGoal() {
         const target = parseFloat(sheet.querySelector("#goal-target").value.replace(/[^0-9.]/g, ""));
         const deadline = sheet.querySelector("#goal-deadline").value || null;
         if (!name || isNaN(target) || target <= 0) return;
+        const cadence = readCadence();
         update((s) => {
-          s.goals.push({ id: uid(), name, icon, target, saved: 0, deadline, priority, createdAt: todayISO(), completedAt: null });
+          s.goals.push({
+            id: uid(), name, icon, target, saved: 0, deadline, priority,
+            createdAt: todayISO(), completedAt: null,
+            cadence, cadenceProgress: 0, cadencePeriodKey: null,
+            cadenceStreak: 0, lastMetPeriodKey: null, lastCadenceMet: null,
+          });
         });
         close();
         toast("Goal created");
@@ -174,7 +225,13 @@ function openContribute(id) {
   const g = get().goals.find((x) => x.id === id);
   if (!g) return;
   const st = goalStats(g);
-  const suggest = st.requiredMonthly ? Math.min(st.remaining, Math.round(st.requiredMonthly / 4.345 / 5) * 5) : 25;
+  // Prefer the cadence's remaining-this-period; else a weekly slice of the
+  // monthly requirement; else a sensible default.
+  const suggest = st.cadence && st.cadence.remaining > 0
+    ? Math.min(st.remaining, st.cadence.remaining)
+    : st.requiredMonthly
+      ? Math.min(st.remaining, Math.round(st.requiredMonthly / WEEKS_PER_MONTH / 5) * 5)
+      : 25;
   openSheet(`
     <h2 class="sheet-title">${g.icon} Add to ${esc(g.name)}</h2>
     <div class="chip-row" style="margin-bottom:14px">
@@ -198,9 +255,13 @@ function openContribute(id) {
         const amount = parseFloat(amountEl.value.replace(/[^0-9.]/g, ""));
         if (isNaN(amount) || amount <= 0) return;
         let completed = false;
+        let metCadence = false;
+        let streakNow = 0;
         update((s) => {
           const goal = s.goals.find((x) => x.id === id);
           goal.saved = Math.round((goal.saved + amount) * 100) / 100;
+          metCadence = applyCadenceContribution(goal, amount);
+          streakNow = goal.cadenceStreak || 0;
           if (goal.saved >= goal.target && !goal.completedAt) {
             goal.completedAt = todayISO();
             completed = true;
@@ -210,6 +271,7 @@ function openContribute(id) {
         });
         close();
         awardContribution(amount);
+        if (metCadence) setTimeout(() => toast(`🔥 Pace kept — ${streakNow} in a row!`), 900);
         if (completed) setTimeout(checkAchievements, 400);
         else checkAchievements();
         refresh();
@@ -233,19 +295,26 @@ function openGoalDetail(id) {
         <div class="field grow"><label class="field-label">Deadline</label>
           <input class="input" id="eg-deadline" type="date" value="${g.deadline || ""}"></div>
       </div>
+      ${cadencePickerHTML(g.cadence)}
       <button class="btn btn-primary btn-block">Save changes</button>
       <button type="button" class="btn btn-danger-ghost btn-block" id="eg-del">Delete goal</button>
     </form>
   `, {
     onOpen(sheet, close) {
+      const readCadence = bindCadencePicker(sheet);
       sheet.querySelector("#edit-goal").addEventListener("submit", (e) => {
         e.preventDefault();
         const target = parseFloat(sheet.querySelector("#eg-target").value.replace(/[^0-9.]/g, ""));
         const deadline = sheet.querySelector("#eg-deadline").value || null;
+        const cadence = readCadence();
         update((s) => {
           const goal = s.goals.find((x) => x.id === id);
           if (!isNaN(target) && target > 0) goal.target = target;
           goal.deadline = deadline;
+          // Turning cadence off clears the streak; changing it keeps history but
+          // re-paces from the current period.
+          goal.cadence = cadence;
+          if (!cadence) { goal.cadenceStreak = 0; goal.lastMetPeriodKey = null; }
         });
         close(); toast("Goal updated"); refresh();
       });

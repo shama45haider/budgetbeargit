@@ -27,20 +27,18 @@ export function project(months = 12, scenario = {}) {
   for (let m = 1; m <= months; m++) {
     let net = monthlyIncome - expenses + extra;
 
-    // Minimum debt payments already sit inside `expenses`. Accelerating payoff
-    // has two effects, and the cushion has to feel both of them — previously
-    // debtBalance was decremented here and then never read, so the scenario
-    // produced a line identical to the baseline.
-    if (scenario.payoffDebt) {
-      if (debtBalance > 0) {
-        // Throwing extra at the debt is money you don't bank this month.
-        const grown = debtBalance * (1 + avgApr / 100 / 12);
-        debtBalance = Math.max(0, grown - (debtMonthly + payoffExtra));
-        net -= payoffExtra;
-      } else {
-        // Debt's gone: the minimum payment is yours to keep from here on.
-        net += debtMonthly;
-      }
+    // Debt is amortized every month until the balance is gone. Minimum payments
+    // are NOT part of the budget `expenses` (onboarding creates no debt
+    // category), so they leave the cushion here — exactly once. The baseline
+    // pays just the minimums; the payoff scenario throws `payoffExtra` on top,
+    // clearing the debt sooner and freeing the minimum payment earlier. Once the
+    // balance hits zero nothing is subtracted, so the freed cash is kept
+    // automatically (no separate add-back, which previously double-counted it).
+    if (debtBalance > 0) {
+      const extraPay = scenario.payoffDebt ? payoffExtra : 0;
+      const grown = debtBalance * (1 + avgApr / 100 / 12);
+      debtBalance = Math.max(0, grown - (debtMonthly + extraPay));
+      net -= debtMonthly + extraPay;
     }
 
     cushion += net;

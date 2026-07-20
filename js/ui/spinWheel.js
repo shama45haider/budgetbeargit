@@ -39,6 +39,28 @@ export function spunToday() {
   catch { return false; }
 }
 
+/** Confetti burst from the wheel center on a win. Skipped under reduced motion. */
+function fireConfetti(stage) {
+  if (!stage || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (document.documentElement.hasAttribute("data-reduce-motion")) return;
+  const burst = document.createElement("div");
+  burst.className = "spin-burst";
+  const colors = ["#7FC96A", "#C9A227", "#3D6B8E", "#B05A6E", "#ff9a56", "#8b5fc7"];
+  for (let i = 0; i < 26; i++) {
+    const p = document.createElement("i");
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 60 + Math.random() * 90;
+    p.style.setProperty("--dx", (Math.cos(ang) * dist).toFixed(1) + "px");
+    p.style.setProperty("--dy", (Math.sin(ang) * dist - 20).toFixed(1) + "px");
+    p.style.setProperty("--r", Math.round(Math.random() * 720 - 360) + "deg");
+    p.style.setProperty("--d", (Math.random() * 0.12).toFixed(2) + "s");
+    p.style.setProperty("--cc", colors[i % colors.length]);
+    burst.appendChild(p);
+  }
+  stage.appendChild(burst);
+  setTimeout(() => burst.remove(), 1500);
+}
+
 export function openSpinWheel() {
   const root = document.getElementById("overlay-root");
   document.getElementById("spin-overlay")?.remove();
@@ -57,12 +79,14 @@ export function openSpinWheel() {
       <div class="achievement-title" id="spin-title">Give it a whirl</div>
       <p class="achievement-desc" id="spin-desc">One free spin every day. Points, rare flairs, rare tags.</p>
       <div class="spin-stage">
-        <div class="spin-pointer"></div>
+        <div class="spin-rim"></div>
         <div class="spin-wheel" id="spin-wheel" style="background:conic-gradient(${conic})">
           ${SEGMENTS.map((s, i) => `
             <span class="spin-label" style="transform:rotate(${i * 45 + 22.5}deg) translateY(-38%)">${s.label}</span>`).join("")}
-          <div class="spin-hub"><img src="assets/bears/coinbear.png" alt="" width="34" height="34"></div>
         </div>
+        <div class="spin-glass"></div>
+        <div class="spin-hub"><img src="assets/bears/coinbear.png" alt="" width="34" height="34"></div>
+        <div class="spin-pointer"></div>
       </div>
       <div class="stack" style="margin-top:18px">
         <button class="btn btn-primary btn-block" id="spin-go">Spin</button>
@@ -128,6 +152,11 @@ export function openSpinWheel() {
       goBtn.hidden = true;
       el.querySelector("#spin-close").textContent = "Nice!";
       el.querySelector("#spin-close").className = "btn btn-primary btn-block";
+
+      // Celebrate the landing.
+      const card = el.querySelector(".achievement-card");
+      card.classList.add("spin-win");
+      fireConfetti(el.querySelector(".spin-stage"));
 
       update((s) => { s.points.balance = result.balance; }); // mirror server truth
       await loadMyProfile().catch(() => {});
