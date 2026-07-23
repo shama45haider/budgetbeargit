@@ -61,7 +61,7 @@ function paint(chat, view) {
 
   chat.innerHTML = history.map((m) => m.role === "user"
     ? `<div class="ob-bubble me"><div class="ob-msg">${m.html}</div></div>`
-    : `<div class="ob-bubble bear"><img class="ob-avatar" src="assets/bears/thinkbear.png" alt=""><div class="ob-msg">${m.html}</div></div>`
+    : `<div class="ob-bubble bear"><img class="ob-avatar" src="assets/bears/thinkbear.webp" alt=""><div class="ob-msg">${m.html}</div></div>`
   ).join("");
   const last = history[history.length - 1];
   chipsEl.innerHTML = (last?.chips || [])
@@ -77,7 +77,7 @@ async function handle(text, chat, view) {
 
   const typing = document.createElement("div");
   typing.className = "ob-bubble bear";
-  typing.innerHTML = `<img class="ob-avatar" src="assets/bears/thinkbear.png" alt="">
+  typing.innerHTML = `<img class="ob-avatar" src="assets/bears/thinkbear.webp" alt="">
     <div class="ob-msg typing"><span></span><span></span><span></span></div>`;
   chat.appendChild(typing);
   chat.scrollTop = chat.scrollHeight;

@@ -207,7 +207,7 @@ function bigAvatar(p, size) {
 function signedOutCard() {
   return `
   <section class="card" style="text-align:center;padding:24px">
-    <img src="assets/logo.png" alt="" width="60" height="60" style="margin:0 auto 10px">
+    <img src="assets/logo.webp" alt="" width="60" height="60" style="margin:0 auto 10px">
     <h2>Create your profile</h2>
     <p class="t-secondary t-small" style="margin:6px auto 14px;max-width:260px">
       Pick any name, upload an avatar, choose your colors — and unlock Group Links with friends.

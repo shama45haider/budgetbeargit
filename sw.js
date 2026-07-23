@@ -1,6 +1,6 @@
 /* Budget Bear — service worker: offline-first app shell. */
 
-const CACHE = "budgetbear-v12";
+const CACHE = "budgetbear-v13";
 
 const SHELL = [
   "./",
@@ -58,19 +58,33 @@ const SHELL = [
   "js/screens/profile.js",
   "js/screens/onboarding.js",
   "assets/logo.png",
+  "assets/logo.webp",
   "assets/icons/icon-192.png",
   "assets/icons/icon-512.png",
-  "assets/bears/coinbear.png",
-  "assets/bears/coin2bear.png",
-  "assets/bears/confusedbear.png",
-  "assets/bears/excitedbear.png",
-  "assets/bears/graphbear.png",
-  "assets/bears/happybear.png",
-  "assets/bears/achievementbear.png",
-  "assets/bears/pointbear.png",
-  "assets/bears/pointbear2.png",
-  "assets/bears/thinkbear.png",
-  "assets/banner-wide.png",
+  "assets/bears/coinbear.webp",
+  "assets/bears/coin2bear.webp",
+  "assets/bears/confusedbear.webp",
+  "assets/bears/excitedbear.webp",
+  "assets/bears/graphbear.webp",
+  "assets/bears/happybear.webp",
+  "assets/bears/achievementbear.webp",
+  "assets/bears/pointbear.webp",
+  "assets/bears/pointbear2.webp",
+  "assets/bears/thinkbear.webp",
+  "assets/bears/armscrossedbear.webp",
+  "assets/bears/bearfriends.webp",
+  "assets/bears/cafebear.webp",
+  "assets/bears/carbear.webp",
+  "assets/bears/coffeebear.webp",
+  "assets/bears/moneybear.webp",
+  "assets/bears/partybear1.webp",
+  "assets/bears/partybear2.webp",
+  "assets/bears/pleasedbear.webp",
+  "assets/bears/presentbear.webp",
+  "assets/bears/socialbear.webp",
+  "assets/bears/strongbear.webp",
+  "assets/bears/worriedbear.webp",
+  "assets/banner-wide.webp",
 ];
 
 self.addEventListener("install", (e) => {

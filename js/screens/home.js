@@ -33,7 +33,7 @@ export function renderHome(view) {
         <h1>${esc(s.profile.name || "Welcome")}</h1>
       </div>
       <button class="points-pill" data-nav="/shop" aria-label="Bear Points — open the Shop">
-        <img src="assets/bears/coinbear.png" alt="" width="22" height="22">
+        <img src="assets/bears/coinbear.webp" alt="" width="22" height="22">
         <span class="t-num" data-count-to="${points}">0</span>
       </button>
     </header>
@@ -113,7 +113,7 @@ export function renderHome(view) {
     <h2 class="section-title">From your coach</h2>
     <button class="card tappable coach-card" style="width:100%;text-align:left" data-nav="/coach">
       <div class="row" style="align-items:flex-start">
-        <img src="assets/bears/${rec.type === "watch" ? "thinkbear" : "pointbear"}.png" alt="" width="46" height="46" style="flex-shrink:0">
+        <img src="assets/bears/${rec.type === "watch" ? "worriedbear" : "pointbear"}.webp" alt="" width="46" height="46" style="flex-shrink:0">
         <div class="grow">
           <h3 style="font-size:var(--fs-15)">${esc(rec.text)}</h3>
           <div class="t-small t-secondary" style="margin-top:3px">${esc(rec.detail || "")}</div>

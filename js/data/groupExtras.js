@@ -11,42 +11,42 @@ export const GROUP_ACHIEVEMENTS = [
     id: "squad-up",
     title: "Squad Assembled",
     desc: "Three or more savers in the group. It's officially a team.",
-    bear: "happybear.png",
+    bear: "happybear.webp",
     check: ({ members }) => members.length >= 3,
   },
   {
     id: "liftoff",
     title: "Liftoff",
     desc: "The group's first $100 saved together.",
-    bear: "coin2bear.png",
+    bear: "coin2bear.webp",
     check: ({ members }) => total(members) >= 100,
   },
   {
     id: "first-grand",
     title: "The First Grand",
     desc: "$1,000 saved as a group. Real money, real momentum.",
-    bear: "achievementbear.png",
+    bear: "achievementbear.webp",
     check: ({ members }) => total(members) >= 1000,
   },
   {
     id: "halfway",
     title: "Halfway There",
     desc: "The group crossed 50% of its goal.",
-    bear: "graphbear.png",
+    bear: "graphbear.webp",
     check: ({ group, members }) => goalTarget(group, members) > 0 && total(members) >= goalTarget(group, members) / 2,
   },
   {
     id: "goal-reached",
     title: "Goal Reached",
     desc: "You did it — together. Time to book it.",
-    bear: "excitedbear.png",
+    bear: "excitedbear.webp",
     check: ({ group, members }) => goalTarget(group, members) > 0 && total(members) >= goalTarget(group, members),
   },
   {
     id: "perfect-week",
     title: "Perfect Week",
     desc: "Every member contributed within the same 7 days.",
-    bear: "pointbear2.png",
+    bear: "pointbear2.webp",
     check: ({ members, contributions }) => {
       if (members.length < 2) return false;
       const weekAgo = Date.now() - 7 * 86400000;
@@ -58,14 +58,14 @@ export const GROUP_ACHIEVEMENTS = [
     id: "heavy-lifter",
     title: "Heavy Lifter",
     desc: "A member hit their full personal target.",
-    bear: "graphbear.png",
+    bear: "presentbear.webp",
     check: ({ group, members }) => members.some((m) => m.saved >= memberTarget(group, m)),
   },
   {
     id: "photo-finish",
     title: "Photo Finish",
     desc: "Goal reached before the target date.",
-    bear: "excitedbear.png",
+    bear: "carbear.webp",
     check: ({ group, members }) => {
       if (!group.target_date) return false;
       const t = goalTarget(group, members);

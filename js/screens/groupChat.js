@@ -53,7 +53,7 @@ export function renderGroupChat(view, groupId) {
       if (!isCurrent(myPath)) return;
       if (!group) {
         view.innerHTML = `<div class="screen"><div class="empty-state" style="padding-top:60px">
-          <img src="assets/bears/confusedbear.png" alt="">
+          <img src="assets/bears/confusedbear.webp" alt="">
           <h3>Group not found</h3></div>
           <button class="btn btn-secondary btn-block" onclick="location.hash='/groups'">Back to Groups</button></div>`;
         return;
@@ -102,7 +102,7 @@ function paintMessages(list, messages, myId) {
   if (!messages.length) {
     list.innerHTML = `
       <div class="empty-state" style="padding-top:40px">
-        <img src="assets/bears/happybear.png" alt="">
+        <img src="assets/bears/socialbear.webp" alt="">
         <h3>No messages yet</h3>
         <p>Say hi — plan the trip, split who's bringing what, hype each other up.</p>
       </div>`;

@@ -315,7 +315,7 @@ function fieldShellHTML(step) {
 function welcomeHTML() {
   return `
     <div class="wizard-welcome">
-      <img src="assets/logo.png" alt="Budget Bear">
+      <img src="assets/logo.webp" alt="Budget Bear">
       <h1>Let's set up your plan</h1>
       <p>A few quick questions — about two minutes, no spreadsheets.</p>
       <div class="stack">

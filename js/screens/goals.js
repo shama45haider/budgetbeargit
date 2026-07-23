@@ -26,7 +26,7 @@ export function renderGoals(view) {
 
     ${active.length === 0 && done.length === 0 ? `
       <div class="empty-state">
-        <img src="assets/bears/pointbear.png" alt="">
+        <img src="assets/bears/pointbear.webp" alt="">
         <h3>Give your money a direction</h3>
         <p>A goal turns saving from a chore into progress you can see.</p>
       </div>` : ""}

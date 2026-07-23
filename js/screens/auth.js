@@ -62,7 +62,7 @@ export function renderAuth(view) {
     view.innerHTML = `
       <div class="screen">
         <div class="empty-state" style="padding-top:80px">
-          <img src="assets/bears/confusedbear.png" alt="">
+          <img src="assets/bears/confusedbear.webp" alt="">
           <h3>Online features aren't set up yet</h3>
           <p>Accounts and Group Links need the Supabase project configured. See SETUP-SUPABASE.md in the repo.</p>
         </div>
@@ -75,7 +75,7 @@ export function renderAuth(view) {
   view.innerHTML = `
   <div class="screen auth-screen">
     <div class="auth-hero">
-      <img src="assets/banner-wide.png" alt="Budget Bear" style="width:min(260px,70%);height:auto">
+      <img src="assets/banner-wide.webp" alt="Budget Bear" style="width:min(260px,70%);height:auto">
       <h1>${mode === "signup" ? "Create your account" : "Welcome back"}</h1>
       <p class="t-secondary">${mode === "signup"
         ? "Save with friends, earn Bear Points, and spend them in the Shop."

@@ -42,7 +42,7 @@ export function renderInsights(view) {
     <div class="stack">
       ${list.slice(0, 5).map(insightCard).join("") || `
         <div class="empty-state">
-          <img src="assets/bears/confusedbear.png" alt="">
+          <img src="assets/bears/confusedbear.webp" alt="">
           <h3>Not enough data yet</h3>
           <p>Add a few expenses and insights will appear here.</p>
         </div>`}

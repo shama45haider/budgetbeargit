@@ -15,7 +15,7 @@ export function showLoader(message = "One moment…") {
   el.setAttribute("role", "status");
   el.innerHTML = `
     <div class="loader-glow"></div>
-    <img src="assets/logo.png" alt="" width="88" height="88">
+    <img src="assets/logo.webp" alt="" width="88" height="88">
     <div class="loader-text">${message}</div>`;
   document.getElementById("overlay-root").appendChild(el);
   requestAnimationFrame(() => el.classList.add("open"));

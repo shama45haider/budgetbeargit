@@ -64,7 +64,7 @@ function paint(view, profile) {
   const lvl = levelFor(profile.lifetime_points || 0);
 
   view.querySelector("#shop-balance").innerHTML =
-    `<img src="assets/bears/coinbear.png" alt="" width="18" height="18" style="vertical-align:-3px"> <strong class="t-num" data-count-to="${profile.points || 0}">0</strong> points ${infoDot("bear-points")}`;
+    `<img src="assets/bears/coinbear.webp" alt="" width="18" height="18" style="vertical-align:-3px"> <strong class="t-num" data-count-to="${profile.points || 0}">0</strong> points ${infoDot("bear-points")}`;
 
   view.querySelector("#shop-body").innerHTML = `
     ${previewCard(profile, equipped)}

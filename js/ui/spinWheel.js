@@ -85,7 +85,7 @@ export function openSpinWheel() {
             <span class="spin-label" style="transform:rotate(${i * 45 + 22.5}deg) translateY(-38%)">${s.label}</span>`).join("")}
         </div>
         <div class="spin-glass"></div>
-        <div class="spin-hub"><img src="assets/bears/coinbear.png" alt="" width="34" height="34"></div>
+        <div class="spin-hub"><img src="assets/bears/coinbear.webp" alt="" width="34" height="34"></div>
         <div class="spin-pointer"></div>
       </div>
       <div class="stack" style="margin-top:18px">

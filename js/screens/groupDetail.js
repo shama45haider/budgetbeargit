@@ -47,7 +47,7 @@ export function renderGroupDetail(view, groupId) {
       if (!isCurrent(myPath)) return; // navigated away mid-load — don't paint over the new screen
       if (!group) {
         view.innerHTML = `<div class="screen"><div class="empty-state" style="padding-top:60px">
-          <img src="assets/bears/confusedbear.png" alt="">
+          <img src="assets/bears/confusedbear.webp" alt="">
           <h3>Group not found</h3><p>It may have been deleted, or you may have left it.</p></div>
           <button class="btn btn-secondary btn-block" onclick="location.hash='/groups'">Back to Groups</button></div>`;
         return;
@@ -120,7 +120,7 @@ function paint(view, state, reload) {
 
     <div class="card gd-tip">
       <div class="row" style="align-items:flex-start">
-        <img src="assets/bears/thinkbear.png" alt="" width="38" height="38" style="flex-shrink:0">
+        <img src="assets/bears/thinkbear.webp" alt="" width="38" height="38" style="flex-shrink:0">
         <div class="grow">
           <div class="coach-block-title" style="padding:0">Today's tip</div>
           <div style="font-size:var(--fs-14);margin-top:2px">${esc(tip)}</div>

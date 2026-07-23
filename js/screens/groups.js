@@ -47,7 +47,7 @@ function renderSignedOut(view) {
     ${demoBannerHTML()}
     <header class="screen-header"><h1>Groups</h1></header>
     <div class="empty-state" style="padding-top:40px">
-      <img src="assets/bears/excitedbear.png" alt="">
+      <img src="assets/bears/bearfriends.webp" alt="">
       <h3>Save toward goals — together</h3>
       <p>Create a Group Link, invite your friends, and race to a shared goal on a live leaderboard.</p>
     </div>
@@ -87,7 +87,7 @@ async function loadGroups(view) {
     if (!groups.length) {
       list.innerHTML = `
         <div class="empty-state">
-          <img src="assets/bears/pointbear.png" alt="">
+          <img src="assets/bears/pointbear.webp" alt="">
           <h3>No groups yet</h3>
           <p>Create a Group Link and send it to your friends — or paste a code someone sent you.</p>
         </div>`;
@@ -285,7 +285,7 @@ export function renderJoin(view, code) {
     if (g.error) {
       body.innerHTML = `
         <div class="empty-state">
-          <img src="assets/bears/confusedbear.png" alt="">
+          <img src="assets/bears/confusedbear.webp" alt="">
           <h3>That link isn't valid</h3>
           <p>The group may have been deleted, or the code was mistyped.</p>
         </div>
