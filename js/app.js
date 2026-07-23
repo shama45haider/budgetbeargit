@@ -18,6 +18,7 @@ import { renderPlans } from "./screens/plans.js";
 import { initCloud, onAuthChange, currentUser, myProfile } from "./cloud/client.js";
 import { showLoader, hideLoader } from "./ui/loader.js";
 import { applyCachedTheme, applyTheme, applyReduceMotion } from "./ui/theme.js";
+import { reconcileOnSignIn } from "./engine/budgetSync.js";
 
 const icons = {
   home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-5.5a2 2 0 0 1 4 0V21h3.5a1 1 0 0 0 1-1V9.5"/></svg>`,
@@ -121,6 +122,9 @@ async function boot() {
     // Reconcile with the account's equipped theme (covers new device / other tab)
     const equippedTheme = myProfile()?.equipped?.theme || null;
     applyTheme(equippedTheme);
+    // Premium cloud budget sync — profile (and so isPremium()) is guaranteed
+    // loaded by the time this fires; no-ops instantly for free/demo accounts.
+    reconcileOnSignIn().then(() => { if (router.current() === "/profile") router.refresh(); });
     if (p === "/groups" || p === "/profile" || p === "/auth" || p === "/shop" || p === "/plans" || p?.startsWith("/group/")) {
       router.refresh();
     }

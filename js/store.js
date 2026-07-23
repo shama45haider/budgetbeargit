@@ -38,6 +38,7 @@ const defaults = () => ({
   },
   settings: {
     savingsBuffer: 0,    // current cash savings on hand
+    cloudLastSyncedAt: null, // ISO timestamp, Premium cloud budget sync only
   },
 });
 

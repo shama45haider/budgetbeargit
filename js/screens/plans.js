@@ -47,6 +47,7 @@ export function renderPlans(view) {
         </div>
         <p class="t-small t-secondary" style="margin-bottom:10px">The bear at full power.</p>
         <ul class="plan-list">
+          <li><strong>Cloud budget sync</strong> — your budget, goals, and bills follow you to any device</li>
           <li><strong>Custom images</strong> for your budget categories</li>
           <li>Create your own categories</li>
           <li>Unlimited savings goals</li>

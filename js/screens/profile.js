@@ -7,7 +7,7 @@ import { ACHIEVEMENTS } from "../data/achievements.js";
 import { openSheet, toast, confirmSheet, animateNumbers } from "../ui/components.js";
 import { showAchievement } from "../ui/achievement.js";
 import { navigate, refresh } from "../router.js";
-import { currentUser, myProfile, updateProfile, uploadAvatar, clearAvatar, signOut, updatePassword, updateEmail, deleteAccount } from "../cloud/client.js";
+import { currentUser, myProfile, updateProfile, uploadAvatar, clearAvatar, signOut, updatePassword, updateEmail, deleteAccount, isPremium } from "../cloud/client.js";
 import { cloudConfigured, DONATE_URL } from "../cloud/config.js";
 import { redeemCode, friendlyCloudError } from "../cloud/api.js";
 import { accentPickerHTML, bindAccentPicker } from "../data/accents.js";
@@ -15,6 +15,8 @@ import { authNext } from "./auth.js";
 import { flairStyle, effectClass, tagHTML, levelFor } from "../data/shop.js";
 import { infoDot, bindInfoDots, demoBannerHTML, bindDemoBanner } from "../data/glossary.js";
 import { applyReduceMotion } from "../ui/theme.js";
+import { upsell } from "../ui/premium.js";
+import { syncNowManual } from "../engine/budgetSync.js";
 
 export function renderProfile(view) {
   const s = get();
@@ -89,6 +91,7 @@ export function renderProfile(view) {
 
     <h2 class="section-title">Data</h2>
     <div class="list">
+      ${user ? cloudSyncRow(s, isPremium()) : ""}
       <button class="list-row" id="btn-export"><div class="main"><div class="name">Export data</div><div class="meta">Download a JSON backup</div></div><span class="chev">›</span></button>
       <button class="list-row" id="btn-import"><div class="main"><div class="name">Import data</div><div class="meta">Restore from a backup</div></div><span class="chev">›</span></button>
       <button class="list-row" id="btn-reset"><div class="main"><div class="name" style="color:var(--error)">Start over</div><div class="meta">Erase local data on this device</div></div></button>
@@ -158,6 +161,14 @@ export function renderProfile(view) {
 
   view.querySelector("#btn-plans").addEventListener("click", () => navigate("/plans"));
   view.querySelector("#btn-support")?.addEventListener("click", openSupportSheet);
+  view.querySelector("#btn-cloud-sync")?.addEventListener("click", async () => {
+    if (!isPremium()) { upsell("Cloud budget sync", "Premium keeps your budget, goals, and bills synced across every device you sign into."); return; }
+    const btn = view.querySelector("#btn-cloud-sync");
+    btn.querySelector(".t-small").textContent = "Syncing…";
+    const res = await syncNowManual();
+    if (res.ok) { toast("Budget synced"); refresh(); }
+    else toast(friendlyCloudError({ message: res.error }, "Couldn't sync right now"));
+  });
   view.querySelector("#btn-export").addEventListener("click", doExport);
   view.querySelector("#btn-import").addEventListener("click", doImport);
   view.querySelector("#btn-reset").addEventListener("click", async () => {
@@ -537,6 +548,21 @@ function openDeleteAccount() {
 }
 
 /* ---------- local settings (unchanged behavior) ---------- */
+
+function cloudSyncRow(s, premium) {
+  if (!premium) {
+    return `<button class="list-row" id="btn-cloud-sync">
+      <div class="main"><div class="name">Cloud budget sync</div><div class="meta">Premium — access your budget from any device</div></div>
+      <span class="chev">›</span>
+    </button>`;
+  }
+  const synced = !!s.settings.cloudLastSyncedAt;
+  return `<button class="list-row" id="btn-cloud-sync">
+    <div class="main"><div class="name">Cloud budget sync</div>
+      <div class="meta">${synced ? "✅ Synced to your account" : "Not synced yet"}</div></div>
+    <span class="t-small" style="color:var(--green-600);font-weight:var(--fw-semibold)">Sync now</span>
+  </button>`;
+}
 
 function settingRow(name, value, key) {
   return `<button class="list-row" data-setting="${key}">

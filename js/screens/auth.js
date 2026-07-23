@@ -111,7 +111,7 @@ export function renderAuth(view) {
       ${mode === "signup" ? `<button class="btn btn-ghost btn-block" data-mode="signin">Already have an account? Sign in</button>` : ""}
     </div>
     <p class="t-small t-secondary" style="text-align:center;margin-top:18px">
-      Your budget stays on this device. Your account stores your profile, points, and groups.
+      Your budget stays on this device (or syncs everywhere with Premium). Your account stores your profile, points, and groups.
     </p>
   </div>`;
 

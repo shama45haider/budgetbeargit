@@ -9,6 +9,7 @@ export function friendlyCloudError(err, fallback = "Something went wrong. Try ag
   if (m.includes("group_limit_free")) return "Free accounts can create 2 groups. Go Premium for up to 30.";
   if (m.includes("too_fast")) return "That was fast — wait a second and try again.";
   if (m.includes("group_full")) return "That group is full (20 members max).";
+  if (m.includes("row-level security") || m.includes("premium")) return "That needs Premium.";
   if (m.includes("permission denied")) return "You don't have access to do that.";
   if (m.includes("failed to fetch") || m.includes("network")) return "Can't reach the server. Check your connection.";
   return err?.message || fallback;
@@ -257,6 +258,30 @@ export async function redeemCode(code) {
   const { data, error } = await c.rpc("redeem_code", { p_code: code });
   if (error) throw error;
   return data;
+}
+
+/* ---------- Premium cloud budget sync ---------- */
+
+/** The user's last saved budget snapshot, or null if they've never synced.
+    Reads are allowed regardless of plan (see schema.sql) so a lapsed account
+    never loses access to its own last backup. */
+export async function fetchBudgetBackup() {
+  const c = getClient();
+  const { data, error } = await c.from("budget_backups")
+    .select("data, updated_at").eq("user_id", currentUser().id).maybeSingle();
+  if (error) throw error;
+  return data; // { data, updated_at } or null
+}
+
+/** Upsert the whole local store as one JSONB snapshot. RLS enforces Premium —
+    a lapsed account's push fails here, not on the client. */
+export async function pushBudgetBackup(snapshot) {
+  const c = getClient();
+  const { data, error } = await c.from("budget_backups")
+    .upsert({ user_id: currentUser().id, data: snapshot }, { onConflict: "user_id" })
+    .select("updated_at").single();
+  if (error) throw error;
+  return data.updated_at;
 }
 
 /* ---------- Group Chat ---------- */

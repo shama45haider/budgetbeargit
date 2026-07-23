@@ -1287,6 +1287,80 @@ begin
 end $$;
 
 -- ============================================================
+-- V10: PREMIUM CLOUD BUDGET SYNC
+-- ============================================================
+-- The personal budget (categories, transactions, bills, goals, debts, habits)
+-- has always lived only in localStorage — by design, per the app's own "your
+-- budget stays on this device" pitch. Premium adds one row per user holding
+-- the whole local store as a single JSONB snapshot, so it survives a device
+-- switch. This is deliberately its OWN table, not a column on `profiles`:
+-- profiles is readable by anyone who shares a group with you (V8), and a
+-- personal budget is far more sensitive than a display name — it must never
+-- be reachable by that policy.
+
+create table if not exists public.budget_backups (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  constraint budget_backup_size check (octet_length(data::text) <= 2000000)
+);
+
+alter table public.budget_backups enable row level security;
+
+create or replace function public.touch_budget_backup()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+
+drop trigger if exists on_budget_backup_write on public.budget_backups;
+create trigger on_budget_backup_write
+  before insert or update on public.budget_backups
+  for each row execute function public.touch_budget_backup();
+
+-- Same 1/second shape as guard_contribution_rate — a runaway client loop
+-- shouldn't be able to hammer the table just because the debounce is
+-- client-side and therefore not trustworthy on its own.
+create or replace function public.guard_budget_backup_rate()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if exists (
+    select 1 from budget_backups
+    where user_id = new.user_id and updated_at > now() - interval '2 seconds'
+  ) then
+    raise exception 'too_fast';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists on_budget_backup_rate_guard on public.budget_backups;
+create trigger on_budget_backup_rate_guard
+  before update on public.budget_backups
+  for each row execute function public.guard_budget_backup_rate();
+
+-- Reads are NOT gated on is_premium(): a lapsed account can still retrieve its
+-- last snapshot on a new device (no data ever gets stranded), it just can't
+-- push new changes until premium again — same shape as the category-images
+-- storage policy below (delete ungated, write gated).
+drop policy if exists "users read own budget backup" on public.budget_backups;
+create policy "users read own budget backup"
+  on public.budget_backups for select to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "premium users write own budget backup" on public.budget_backups;
+create policy "premium users write own budget backup"
+  on public.budget_backups for insert to authenticated
+  with check (auth.uid() = user_id and public.is_premium());
+
+drop policy if exists "premium users update own budget backup" on public.budget_backups;
+create policy "premium users update own budget backup"
+  on public.budget_backups for update to authenticated
+  using (auth.uid() = user_id and public.is_premium())
+  with check (auth.uid() = user_id and public.is_premium());
+
+grant select, insert, update on public.budget_backups to authenticated;
+
+-- ============================================================
 -- Force PostgREST to reload its schema cache immediately, so new
 -- foreign keys (and other relationship changes) are visible to the API
 -- right away rather than waiting for its own periodic refresh.
